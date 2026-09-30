@@ -1,0 +1,32 @@
+server:
+  port: 8080
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        http-only: true      # JS에서 세션 쿠키 접근 불가 (XSS로 세션 탈취 방지)
+        same-site: lax       # 다른 사이트에서 보낸 요청엔 쿠키 미전송 (CSRF 완화)
+
+spring:
+  datasource:
+    # 개발용 H2 (프로젝트 폴더의 data/ 에 파일로 저장됨)
+    url: jdbc:h2:file:./data/approvaldb;MODE=MySQL
+    username: sa
+    password:
+    # --- MySQL 사용 시 ---
+    # url: jdbc:mysql://localhost:3306/approval?serverTimezone=Asia/Seoul
+    # username: approval
+    # password: 비밀번호
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+app:
+  admin:
+    login-id: admin
+    # 최초 실행 시 생성되는 관리자 비밀번호. 실제 사용 전 반드시 변경!
+    password: admin1234!
