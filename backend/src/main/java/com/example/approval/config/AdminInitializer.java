@@ -1,48 +1,17 @@
 package com.example.approval.config;
 
-import com.example.approval.domain.Role;
-import com.example.approval.domain.User;
-import com.example.approval.domain.UserStatus;
-import com.example.approval.repository.UserRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Component;
+/**
+ * (사용 안 함) 예전 버전에서 서버 시작 때 admin / admin1234! 기본 관리자를 만들던 클래스.
+ *
+ * 보안상 기본 계정은 더 이상 만들지 않고, 최초 대표는 /setup 에서 초기 설정 토큰으로 등록한다.
+ * (organization/service/SetupService 참고)
+ *
+ * 이 파일을 빈 클래스로 남겨 둔 이유:
+ *   압축 파일을 기존 폴더에 "덮어쓰기"하면 예전 AdminInitializer.java 가 지워지지 않고 남는데,
+ *   예전 파일은 application.yml 에서 없어진 app.admin.login-id 설정을 찾다가 서버 시작에 실패한다.
+ *   같은 이름의 이 파일로 덮어써서 그 문제를 막는다. 이 파일은 지워도 된다.
+ */
+final class AdminInitializer {
 
-/** 서버 시작 시 관리자 계정이 없으면 하나 만든다. */
-@Component
-public class AdminInitializer implements CommandLineRunner {
-
-    private static final Logger log = LoggerFactory.getLogger(AdminInitializer.class);
-
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final String adminLoginId;
-    private final String adminPassword;
-
-    public AdminInitializer(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                            @Value("${app.admin.login-id}") String adminLoginId,
-                            @Value("${app.admin.password}") String adminPassword) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.adminLoginId = adminLoginId;
-        this.adminPassword = adminPassword;
-    }
-
-    @Override
-    public void run(String... args) {
-        if (userRepository.existsByLoginId(adminLoginId)) return;
-
-        userRepository.save(new User(
-                adminLoginId,
-                passwordEncoder.encode(adminPassword),
-                "관리자",
-                "경영지원팀",
-                null,
-                Role.ADMIN,
-                UserStatus.ACTIVE));
-        log.warn("관리자 계정 생성됨: {} (application.yml의 비밀번호를 꼭 바꾸세요)", adminLoginId);
-    }
+    private AdminInitializer() {}
 }

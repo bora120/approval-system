@@ -1,0 +1,83 @@
+/* ===== 최초 설정 / 조직 관리 (org-) — 흑백 미니멀. 토큰은 app/globals.css 의 :root ===== */
+.org-setup { max-width: 420px; }
+.org-form { display: flex; flex-direction: column; gap: 2px; }
+.org-form label { margin-top: 12px; font-size: var(--fs-sm); font-weight: 500; color: var(--c-sub); }
+.org-form input {
+  padding: 9px 0; border: 0; border-bottom: 1px solid var(--c-line); border-radius: 0;
+  font-size: var(--fs-md); background: transparent;
+}
+.org-form input:focus { outline: none; border-bottom-color: var(--c-black); }
+.org-form .main-button { margin-top: 20px; }
+.org-token-guide {
+  background: var(--c-soft); border-left: 2px solid var(--c-black);
+  padding: 10px 12px; font-size: var(--fs-sm); line-height: 1.6;
+}
+.org-token-guide code { font-family: var(--mono); font-size: var(--fs-xs); background: var(--c-white); border: 1px solid var(--c-line); padding: 0 4px; }
+.org-done { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; font-size: var(--fs-sm); }
+.org-done .main-button { text-decoration: none; display: inline-block; text-align: center; padding: 10px 20px; }
+.setup-notice { margin: 0 0 16px; }
+.setup-notice a { color: var(--c-black); font-weight: 600; }
+
+.org-page { width: 100%; max-width: 1080px; margin: 0 auto; padding: 32px 32px 64px; color: var(--c-ink); font-size: var(--fs-base); }
+.org-breadcrumb { font-size: var(--fs-xs); color: var(--c-faint); margin-bottom: 10px; }
+.org-breadcrumb a { color: var(--c-faint); text-decoration: none; }
+.org-breadcrumb a:hover { color: var(--c-black); }
+.org-title { font-size: var(--fs-xl); font-weight: 600; margin-bottom: 4px; }
+.org-lead { color: var(--c-sub); margin-bottom: 20px; line-height: 1.6; font-size: var(--fs-sm); }
+.org-stats { display: flex; gap: 0; align-items: stretch; flex-wrap: wrap; margin-bottom: 16px; border-top: 1px solid var(--c-line); border-left: 1px solid var(--c-line); }
+.org-stat {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0; min-width: 120px; padding: 10px 16px;
+  border: 0; border-right: 1px solid var(--c-line); border-bottom: 1px solid var(--c-line); border-radius: 0;
+  background: var(--c-white); cursor: pointer; font-size: var(--fs-xs); color: var(--c-faint);
+}
+.org-stat strong { font-size: var(--fs-xl); font-weight: 600; color: var(--c-ink); }
+.org-stat:hover { background: var(--c-soft); }
+.org-stat.is-active { background: var(--c-black); color: #bbb; }
+.org-stat.is-active strong { color: var(--c-white); }
+.org-warn { color: var(--c-black) !important; font-weight: 600; text-decoration: underline; }
+.org-stat.is-active .org-warn { color: var(--c-white) !important; }
+.org-search {
+  margin-left: auto; align-self: flex-end; min-width: 220px; padding: 7px 0;
+  border: 0; border-bottom: 1px solid var(--c-line); border-radius: 0; font-size: var(--fs-base); background: transparent;
+}
+.org-search:focus { outline: none; border-bottom-color: var(--c-black); }
+.org-alert { padding: 10px 12px; margin-bottom: 12px; font-size: var(--fs-sm); white-space: pre-line; background: var(--c-soft); border-left: 2px solid var(--c-black); }
+.org-alert--error { background: var(--c-black); color: var(--c-white); }
+.org-alert--ok { }
+.org-table-wrap { overflow-x: auto; border-top: 1px solid var(--c-line-strong); }
+.org-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.org-table th, .org-table td { padding: 10px 10px; border-bottom: 1px solid var(--c-line); text-align: left; vertical-align: middle; white-space: nowrap; }
+.org-table th:first-child, .org-table td:first-child { padding-left: 0; }
+.org-table th { color: var(--c-faint); font-size: var(--fs-xs); font-weight: 500; }
+.org-table tr.is-pending td { background: var(--c-soft); }
+.org-table td small { display: block; color: var(--c-faint); font-size: var(--fs-xs); }
+.org-table select {
+  padding: 4px 6px; border: 1px solid var(--c-line); border-radius: var(--radius);
+  font-size: var(--fs-sm); background: var(--c-white);
+}
+.org-table select:focus { outline: none; border-color: var(--c-black); }
+.org-me { margin-left: 6px; font-size: 10px; background: var(--c-black); color: var(--c-white); padding: 0 5px; border-radius: var(--radius); }
+.org-fixed { font-weight: 600; }
+.org-muted { color: var(--c-faint); }
+.org-empty { text-align: center; color: var(--c-faint); padding: 32px !important; }
+.org-badge { font-size: var(--fs-xs); font-weight: 500; padding: 1px 7px; border: 1px solid var(--c-black); border-radius: var(--radius); }
+.org-badge--pending { border-style: dashed; }
+.org-badge--active { background: var(--c-black); color: var(--c-white); }
+.org-badge--rejected { border-color: var(--c-line); color: var(--c-faint); }
+.org-role { font-size: var(--fs-sm); color: var(--c-sub); }
+.org-role--admin { color: var(--c-ink); font-weight: 600; }
+.org-role--super_admin { color: var(--c-black); font-weight: 700; }
+.org-actions { display: flex; gap: 6px; }
+.org-btn {
+  padding: 4px 10px; border-radius: var(--radius); border: 1px solid var(--c-black); background: var(--c-white);
+  cursor: pointer; font-size: var(--fs-xs); font-weight: 500; transition: background .15s, color .15s;
+}
+.org-btn:hover:not(:disabled) { background: var(--c-black); color: var(--c-white); }
+.org-btn--primary { background: var(--c-black); color: var(--c-white); }
+.org-btn--primary:hover:not(:disabled) { background: var(--c-white); color: var(--c-black); }
+.org-btn:disabled { opacity: .35; cursor: default; }
+.header-admin-link { white-space: nowrap; }
+@media (max-width: 720px) {
+  .org-page { padding: 24px 16px 56px; }
+  .org-search { margin-left: 0; width: 100%; margin-top: 8px; }
+}

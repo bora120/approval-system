@@ -54,6 +54,11 @@ public class User {
 
     public void approve() { this.status = UserStatus.ACTIVE; }
     public void reject() { this.status = UserStatus.REJECTED; }
+    public void changePosition(Position position) { this.position = position; }
+    public void changeRole(Role role) { this.role = role; }
+
+    /** 직책이 있는 직원인지 (직책 없는 예전 시스템 관리자 계정은 결재자가 될 수 없음) */
+    public boolean isEmployee() { return position != null; }
 
     public Long getId() { return id; }
     public String getLoginId() { return loginId; }

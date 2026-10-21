@@ -4,3 +4,5 @@ data/
 *.iml
 .idea/
 .vscode/
+bin/
+uploads/

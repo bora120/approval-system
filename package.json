@@ -1,0 +1,15 @@
+{
+  "name": "e-approval-root",
+  "private": true,
+  "description": "전자결재 시스템 실행용 (백엔드 + 프론트엔드를 한 번에 실행)",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:front": "node scripts/dev.mjs --front-only",
+    "dev:back": "node scripts/dev.mjs --back-only",
+    "setup": "node scripts/dev.mjs --setup-only",
+    "build": "npm --prefix e-approval-next run build"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}

@@ -29,7 +29,11 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/signup", "/api/auth/login", "/error").permitAll()
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                // 최초 대표 등록 (대표가 생기면 서버가 스스로 막음)
+                .requestMatchers("/api/setup/status", "/api/setup/ceo").permitAll()
+                // 관리자 권한 부여/회수는 대표만
+                .requestMatchers("/api/admin/users/*/role").hasRole("SUPER_ADMIN")
+                .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                 .anyRequest().authenticated()
             )
 

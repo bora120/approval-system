@@ -33,6 +33,10 @@ public class AuthService {
             throw new ApiException(HttpStatus.CONFLICT, "이미 사용 중인 아이디입니다.");
         }
 
+        if (!req.position().allowsSelfSignup()) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "부대표·대표 직책은 회원가입으로 선택할 수 없습니다. 대표가 조직 관리에서 지정합니다.");
+        }
+
         UserStatus status = req.position().requiresApproval() ? UserStatus.PENDING : UserStatus.ACTIVE;
 
         User user = new User(
