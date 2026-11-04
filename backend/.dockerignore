@@ -1,0 +1,7 @@
+.env
+.gradle/
+build/
+bin/
+data/
+uploads/
+certs/
