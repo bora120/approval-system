@@ -4,9 +4,9 @@ server:
     session:
       timeout: 30m
       cookie:
-        secure: ${COOKIE_SECURE:false}
         http-only: true # JS에서 세션 쿠키 접근 불가 (XSS로 세션 탈취 방지)
         same-site: lax # 다른 사이트에서 보낸 요청엔 쿠키 미전송 (CSRF 완화)
+        secure: ${COOKIE_SECURE:false}
 
 spring:
   config:
