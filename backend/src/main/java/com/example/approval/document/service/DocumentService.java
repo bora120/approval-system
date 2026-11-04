@@ -2,9 +2,11 @@ package com.example.approval.document.service;
 
 import com.example.approval.document.config.DocumentUploadConfig;
 import com.example.approval.document.domain.*;
+import com.example.approval.document.dto.DecisionRequest;
 import com.example.approval.document.dto.DocumentDetailResponse;
 import com.example.approval.document.dto.DocumentRequest;
 import com.example.approval.document.dto.DocumentSummaryResponse;
+import com.example.approval.document.dto.SignatureVerificationResponse;
 import com.example.approval.document.repository.ApprovalDocumentRepository;
 import com.example.approval.document.repository.ApprovalLineRepository;
 import com.example.approval.domain.User;
@@ -34,15 +36,18 @@ public class DocumentService {
     private final ApprovalLineRepository lineRepository;
     private final UserRepository userRepository;
     private final FileStorageService fileStorage;
+    private final DocumentSignatureService signatureService;
 
     public DocumentService(ApprovalDocumentRepository documentRepository,
                            ApprovalLineRepository lineRepository,
                            UserRepository userRepository,
-                           FileStorageService fileStorage) {
+                           FileStorageService fileStorage,
+                           DocumentSignatureService signatureService) {
         this.documentRepository = documentRepository;
         this.lineRepository = lineRepository;
         this.userRepository = userRepository;
         this.fileStorage = fileStorage;
+        this.signatureService = signatureService;
     }
 
     // ============================== 작성 / 수정 ==============================
@@ -158,22 +163,39 @@ public class DocumentService {
 
     private static final int MAX_COMMENT = 500;
 
+    /**
+     * 승인·반려. 결재자의 인증서 전자서명을 먼저 검증하고, 통과해야만 결재를 반영한다.
+     * 의견은 서명 원문(comment-sha256)에 들어가므로 앞뒤 공백도 바꾸지 않고 받은 그대로 저장한다.
+     */
     @Transactional
-    public DocumentDetailResponse decide(String loginId, Long id, boolean approve, String comment) {
+    public DocumentDetailResponse decide(String loginId, Long id, boolean approve, DecisionRequest req) {
         User user = currentUser(loginId);
         ApprovalDocument doc = findDocument(id);
-        String opinion = trimToNull(comment);
+        String comment = req == null ? null : req.comment();
+        String opinion = (comment == null || comment.isBlank()) ? null : comment;
         if (opinion != null && opinion.length() > MAX_COMMENT) {
             throw badRequest("결재 의견은 " + MAX_COMMENT + "자 이하로 입력하세요.");
         }
+        if (!approve && opinion == null) throw badRequest("반려 사유를 입력하세요.");
+
+        ApprovalLine line = doc.lineToDecide(user); // 내 차례가 아니면 여기서 거절
+        LineSignature signature = signatureService.verifyDecision(user, doc, line, approve, opinion, req);
         if (approve) {
-            doc.approve(user, opinion);
+            doc.approve(user, opinion, signature);
         } else {
-            if (opinion == null) throw badRequest("반려 사유를 입력하세요.");
-            doc.reject(user, opinion);
+            doc.reject(user, opinion, signature);
         }
         documentRepository.flush();
         return DocumentDetailResponse.of(doc, user);
+    }
+
+    /** 결재 전자서명 검증 결과 (열람 권한이 있는 사람만) */
+    @Transactional(readOnly = true)
+    public SignatureVerificationResponse verifySignatures(String loginId, Long id) {
+        User user = currentUser(loginId);
+        ApprovalDocument doc = findDocument(id);
+        checkReadable(doc, user);
+        return signatureService.verifyAll(doc);
     }
 
     /** 반려된 문서를 바탕으로 새 임시저장 문서를 만든다 (첨부파일은 다시 올려야 함) */

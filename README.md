@@ -46,6 +46,29 @@ e-approval-integrated/
 - Node.js 20.9 이상
 - 확장: **Extension Pack for Java**, **Spring Boot Extension Pack**
 
+## DB 설정 (Supabase) — 처음 한 번
+DB는 팀 공용 Supabase(PostgreSQL)를 사용합니다. 접속 정보는 GitHub에 올리지 않고 각자 PC에만 둡니다.
+1. `backend/.env.example` 을 복사해 같은 폴더에 `backend/.env` 로 저장
+2. Supabase 대시보드 → **Connect** → **Session pooler** 의 host / user, 그리고 DB 비밀번호를 `.env` 에 입력
+3. (프로젝트 최초 1회, 한 사람만) Supabase **SQL Editor** 에서 `create schema if not exists app;` 실행
+
+테이블은 서버를 켤 때 자동으로 `app` 스키마에 만들어집니다 (`ddl-auto: update`).
+4. `backend/.env` 에 `CA_KEY_PASSWORD` (전자서명용 사내 인증기관 비밀번호, 12자 이상)를 추가 — **팀원 모두 같은 값**
+
+## 전자서명 (PKI 인증서 기반 결재)
+승인·반려는 결재자의 **X.509 인증서 전자서명**으로만 처리됩니다.
+
+| 구성 | 내용 |
+|---|---|
+| 사내 인증기관(CA) | 서버가 처음 켜질 때 루트 인증서(ECDSA P-256) 생성 → `pki_ca` 테이블에 저장. CA 개인키는 `CA_KEY_PASSWORD` 로 암호화(PBKDF2 + AES-256-GCM) |
+| 인증서 발급 (`/certificate`) | 브라우저가 키쌍 생성 → 개인키는 **인증서 암호**로 암호화해 브라우저(IndexedDB)에만 저장 → 공개키 + 개인키 소유 증명(서명) + 로그인 비밀번호(본인 확인)로 요청 → CA 가 X.509 v3 인증서 발급 |
+| 결재 서명 | 승인/반려 시 인증서 암호 입력 → 문서 해시(본문·금액·첨부파일 SHA-256 포함) + 결재 의견 + 시각에 ECDSA 서명 → 서버가 인증서 체인·유효기간·폐기 여부·서명값 검증 후 반영 |
+| 사후 검증 | 문서 상세의 **전자서명 검증** 칸. 결재 후 DB 에서 내용을 바꾸면 "문서 위·변조 없음" 항목이 실패로 표시 |
+
+- 코드: `backend/.../pki/` (CA·인증서), `document/service/DocumentSignatureService.java` (서명 원문·검증), `e-approval-next/features/pki/` (브라우저 키·서명)
+- 외부 라이브러리 없이 JDK 표준 API + 브라우저 Web Crypto API 만 사용 (X.509 인코딩은 `pki/crypto/Der.java` 직접 구현)
+- 내려받은 `.crt` 는 윈도우에서 더블클릭하거나 `openssl x509 -in user.crt -text` 로 확인할 수 있습니다.
+
 ## 실행 (명령어 하나)
 **프로젝트 최상위 폴더**(backend, e-approval-next 가 보이는 곳)에서:
 ```bash
@@ -161,7 +184,9 @@ npm run dev
 ## TODO
 - [ ] 배포 전 CSRF 토큰 활성화 (`SecurityConfig` 주석 참고)
 - [ ] 로그인 실패 횟수 제한
-- [ ] MySQL 전환 (`build.gradle`, `application.yml` 주석 참고)
+- [x] DB를 Supabase(PostgreSQL)로 전환 (`backend/.env.example` 참고)
+- [x] 결재 승인·반려를 PKI 인증서 전자서명으로 변경
+- [ ] 기안자도 상신할 때 전자서명 (지금은 결재자만 서명)
 - [x] 기본 관리자 계정 제거 → 최초 대표 등록 방식으로 변경
 - [x] 결재 승인·반려·다시 작성
 

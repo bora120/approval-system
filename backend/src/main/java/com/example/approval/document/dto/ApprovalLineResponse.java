@@ -10,7 +10,9 @@ public record ApprovalLineResponse(
         String status,
         String statusLabel,
         String comment,
-        LocalDateTime actedAt
+        LocalDateTime actedAt,
+        boolean signed,            // 인증서 전자서명으로 처리됐는지
+        String certificateSerial   // 서명에 쓴 인증서 일련번호
 ) {
     public static ApprovalLineResponse from(ApprovalLine l) {
         return new ApprovalLineResponse(
@@ -19,6 +21,8 @@ public record ApprovalLineResponse(
                 l.getStatus().name(),
                 l.getStatus().getLabel(),
                 l.getComment(),
-                l.getActedAt());
+                l.getActedAt(),
+                l.isSigned(),
+                l.getCertificate() == null ? null : l.getCertificate().getSerialNumber());
     }
 }

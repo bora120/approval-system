@@ -27,6 +27,7 @@ import java.util.Locale;
  * Hibernate 는 enum 컬럼을 만들 때 허용 값 목록을 DB 에 같이 새겨 둔다.
  *   - H2    : CHECK (ROLE IN ('USER','ADMIN'))
  *   - MySQL : ENUM('USER','ADMIN') 컬럼 타입
+ *   - PostgreSQL(Supabase) : CHECK ((role)::text = ANY (ARRAY['USER'::character varying, ...]))
  * 그런데 ddl-auto=update 는 이미 있는 컬럼을 고치지 않기 때문에, 나중에 enum 값을 추가하면
  * (예: Role.SUPER_ADMIN, Position.VICE_CEO) 예전 DB 에서는 저장할 때 오류가 난다.
  *
@@ -59,10 +60,11 @@ public class EnumColumnCompatibility implements ApplicationRunner {
             for (EnumColumn col : COLUMNS) {
                 if (product.contains("h2")) fixH2(conn, col);
                 else if (product.contains("mysql") || product.contains("mariadb")) fixMySql(conn, col);
+                else if (product.contains("postgresql")) fixPostgres(conn, col);
             }
         } catch (SQLException | RuntimeException e) {
             // 호환 처리 실패가 서버 시작을 막지 않도록 경고만 남김
-            log.warn("enum 컬럼 호환 처리 중 오류가 발생했습니다. (새 직책·권한 저장이 실패하면 backend/data 폴더를 지우고 다시 실행하세요)", e);
+            log.warn("enum 컬럼 호환 처리 중 오류가 발생했습니다. (새 직책·권한 저장이 실패하면 users 테이블의 CHECK 제약을 확인하세요)", e);
         }
     }
 
@@ -122,6 +124,40 @@ public class EnumColumnCompatibility implements ApplicationRunner {
             st.execute("ALTER TABLE `" + col.table() + "` MODIFY COLUMN `" + col.column() + "` VARCHAR(30) "
                     + (col.nullable() ? "NULL" : "NOT NULL"));
             log.info("기존 DB 호환: {}.{} 컬럼을 VARCHAR 로 변경했습니다.", col.table(), col.column());
+        }
+    }
+
+    /** PostgreSQL(Supabase): 새 값이 빠진 CHECK 제약을 삭제. 현재 스키마(app)의 테이블만 본다 (auth.users 등은 건드리지 않음) */
+    private void fixPostgres(Connection conn, EnumColumn col) throws SQLException {
+        String sql = """
+                SELECT n.nspname, c.conname, pg_get_constraintdef(c.oid)
+                FROM pg_constraint c
+                JOIN pg_class t ON t.oid = c.conrelid
+                JOIN pg_namespace n ON n.oid = t.relnamespace
+                WHERE c.contype = 'c' AND t.relname = ? AND n.nspname = current_schema()
+                """;
+        List<String[]> toDrop = new ArrayList<>();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, col.table());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String def = rs.getString(3);
+                    if (def == null) continue;
+                    boolean aboutColumn = def.matches("(?s).*\\b" + col.column() + "\\b.*");
+                    String upper = def.toUpperCase(Locale.ROOT);
+                    boolean isValueList = upper.contains(" ANY ") || upper.contains(" IN ");
+                    boolean missingValue = Arrays.stream(col.values()).anyMatch(v -> !def.contains("'" + v.name() + "'"));
+                    if (aboutColumn && isValueList && missingValue) {
+                        toDrop.add(new String[]{rs.getString(1), rs.getString(2)});
+                    }
+                }
+            }
+        }
+        for (String[] c : toDrop) {
+            try (Statement st = conn.createStatement()) {
+                st.execute("ALTER TABLE \"" + c[0] + "\".\"" + col.table() + "\" DROP CONSTRAINT \"" + c[1] + "\"");
+                log.info("기존 DB 호환: {}.{} 컬럼의 예전 허용값 제약({})을 해제했습니다.", col.table(), col.column(), c[1]);
+            }
         }
     }
 }

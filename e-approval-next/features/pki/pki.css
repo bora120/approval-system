@@ -1,0 +1,73 @@
+/* ===== 전자서명 인증서 (pki-) — 전자결재 화면과 같은 흑백 톤. 토큰은 app/globals.css 의 :root ===== */
+.pki-muted { color: var(--c-faint); font-size: var(--fs-sm); line-height: 1.6; }
+.pki-mono { font-family: var(--mono); font-size: var(--fs-sm); }
+.pki-break { word-break: break-all; }
+.pki-error { background: var(--c-black); color: var(--c-white); padding: 8px 10px; font-size: var(--fs-sm); }
+.pki-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+
+.pki-badge {
+  display: inline-block; margin-left: 6px; padding: 1px 6px; border: 1px solid var(--c-line);
+  font-size: var(--fs-xs); font-weight: 500; color: var(--c-sub); vertical-align: middle;
+}
+.pki-badge--ok { border-color: var(--c-black); color: var(--c-black); }
+.pki-badge--fail { background: var(--c-black); border-color: var(--c-black); color: var(--c-white); }
+
+/* ----- 인증서 정보 표 ----- */
+.pki-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.pki-table th, .pki-table td { border-bottom: 1px solid var(--c-line); padding: 8px 10px; text-align: left; vertical-align: top; }
+.pki-table th { width: 130px; font-weight: 500; color: var(--c-sub); background: var(--c-soft); }
+.pki-pre {
+  margin-top: 10px; padding: 12px; background: var(--c-soft); font-family: var(--mono); font-size: 11px;
+  white-space: pre-wrap; word-break: break-all; line-height: 1.5; max-height: 280px; overflow: auto;
+}
+
+/* ----- 발급 폼 ----- */
+.pki-form { display: flex; flex-direction: column; gap: 14px; max-width: 420px; }
+.pki-field { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sm); font-weight: 500; color: var(--c-sub); }
+.pki-field input {
+  padding: 8px 0; border: none; border-bottom: 1px solid var(--c-line); font-size: var(--fs-base);
+  background: transparent; color: var(--c-ink);
+}
+.pki-field input:focus { outline: none; border-bottom-color: var(--c-black); }
+
+.pki-explain ol { padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-sm); line-height: 1.7; color: var(--c-sub); }
+.pki-explain strong { color: var(--c-ink); }
+
+/* ----- 인증서 암호 입력 창 ----- */
+.pki-modal {
+  position: fixed; inset: 0; z-index: 60; padding: 16px;
+  background: rgba(0, 0, 0, .5); display: flex; align-items: center; justify-content: center;
+}
+.pki-modal-box {
+  width: 100%; max-width: 420px; background: var(--c-white); border: 1px solid var(--c-black);
+  padding: 24px; display: flex; flex-direction: column; gap: 12px;
+}
+.pki-modal-box h3 { font-size: var(--fs-md); }
+.pki-modal-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 4px; }
+.pki-cert-mini {
+  display: grid; grid-template-columns: 64px 1fr; gap: 4px 8px; padding: 10px; background: var(--c-soft);
+  font-size: var(--fs-xs);
+}
+.pki-cert-mini dt { color: var(--c-faint); }
+.pki-cert-mini dd { word-break: break-all; }
+
+/* ----- 결재 문서: 서명 검증 ----- */
+.pki-verify { margin-top: 8px; }
+.pki-verify-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.pki-verify-list { list-style: none; display: flex; flex-direction: column; gap: 0; }
+.pki-verify-item { border-top: 1px solid var(--c-line); padding: 12px 0; }
+.pki-verify-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--fs-sm); }
+.pki-verify-row .pki-muted { margin-left: auto; }
+.pki-checks { list-style: none; margin: 10px 0 0; display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sm); }
+.pki-checks li { display: grid; grid-template-columns: 18px 130px 1fr; gap: 6px; }
+.pki-check-mark { font-weight: 700; }
+.pki-check--fail { font-weight: 600; }
+.pki-details { margin-top: 10px; font-size: var(--fs-sm); }
+.pki-details summary { cursor: pointer; color: var(--c-sub); }
+.pki-details[open] summary { margin-bottom: 8px; }
+
+.apv-stamp-signed { display: block; font-size: 10px; color: var(--c-sub); margin-top: 1px; }
+
+@media print {
+  .pki-modal { display: none; }
+}

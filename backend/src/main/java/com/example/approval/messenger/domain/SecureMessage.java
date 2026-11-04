@@ -60,8 +60,9 @@ public class SecureMessage {
     @Column(nullable = false, length = 32)
     private String iv;
 
-    @Lob
-    @Column(nullable = false)
+    // @Lob 을 쓰면 PostgreSQL 에서는 본문이 별도 Large Object(oid)로 저장돼 다루기 까다롭다.
+    // 최대 길이가 정해져 있으므로(MessengerLimits.MAX_CIPHERTEXT_LENGTH = 50,000) 일반 문자열 컬럼으로 저장
+    @Column(nullable = false, length = 50_000)
     private String ciphertext;
 
     @Column(nullable = false, length = 1024)

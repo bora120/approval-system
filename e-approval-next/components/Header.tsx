@@ -47,6 +47,7 @@ export default function Header({ variant = "default" }: Props) {
                 조직 관리
               </Link>
             )}
+            <Link href="/certificate">인증서</Link>
             <Link href="/mypage">마이페이지</Link>
             <a href="/auth" onClick={(event) => { event.preventDefault(); void handleLogout(); }}>로그아웃</a>
           </>
