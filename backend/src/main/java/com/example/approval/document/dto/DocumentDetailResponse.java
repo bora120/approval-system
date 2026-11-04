@@ -2,6 +2,7 @@ package com.example.approval.document.dto;
 
 import com.example.approval.document.domain.ApprovalDocument;
 import com.example.approval.document.domain.DocumentStatus;
+import com.example.approval.document.service.DocumentSignatureService;
 import com.example.approval.domain.User;
 
 import java.time.LocalDate;
@@ -38,7 +39,10 @@ public record DocumentDetailResponse(
         LocalDateTime submittedAt,
         LocalDateTime completedAt,
 
-        Permissions permissions
+        Permissions permissions,
+
+        /** 서명 대상 문서 내용 (내가 결재할 차례일 때만). 브라우저가 이 값의 SHA-256 을 서명 원문에 넣는다 */
+        String signingContent
 ) {
     /** 현재 로그인한 사용자가 이 문서에 할 수 있는 동작 (버튼 표시용) */
     public record Permissions(boolean canEdit, boolean canDelete, boolean canWithdraw,
@@ -81,6 +85,7 @@ public record DocumentDetailResponse(
                 d.getUpdatedAt(),
                 d.getSubmittedAt(),
                 d.getCompletedAt(),
-                permissions);
+                permissions,
+                permissions.canDecide() ? DocumentSignatureService.canonicalContent(d) : null);
     }
 }

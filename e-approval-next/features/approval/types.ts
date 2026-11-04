@@ -63,6 +63,56 @@ export interface ApprovalLine {
   statusLabel: string
   comment: string | null
   actedAt: string | null
+  signed: boolean // 인증서 전자서명으로 처리됐는지
+  certificateSerial: string | null
+}
+
+/** 승인/반려 요청 (전자서명 포함) */
+export interface DecisionPayload {
+  comment: string | null
+  signature: string
+  signedAt: string
+  certificateSerial: string
+}
+
+/** GET /api/documents/:id/signatures — 결재 전자서명 검증 결과 */
+export interface SignatureCheck {
+  label: string
+  ok: boolean
+  detail: string
+}
+
+export interface SignatureLineResult {
+  stepOrder: number
+  signerName: string
+  signerPositionLabel: string
+  decision: 'APPROVED' | 'REJECTED'
+  decisionLabel: string
+  signed: boolean
+  valid: boolean
+  summary: string
+  checks: SignatureCheck[]
+  certificate: {
+    serialNumber: string
+    subject: string
+    issuer: string
+    notBefore: string
+    notAfter: string
+    status: string
+    statusLabel: string
+    revokedAt: string | null
+    algorithm: string
+  } | null
+  actedAt: string | null
+  signedMessage: string | null
+  signature: string | null
+}
+
+export interface SignatureVerification {
+  documentHash: string
+  canonicalContent: string
+  caSubject: string | null
+  signatures: SignatureLineResult[]
 }
 
 export interface AttachmentInfo {
@@ -125,6 +175,9 @@ export interface DocumentDetail {
     canDecide: boolean
     canCopy: boolean
   }
+
+  /** 서명 대상 문서 내용 (내가 결재할 차례일 때만 옴). 이 값의 SHA-256 이 서명 원문에 들어간다 */
+  signingContent: string | null
 }
 
 /** 작성 화면 → 서버로 보내는 문서 내용 */

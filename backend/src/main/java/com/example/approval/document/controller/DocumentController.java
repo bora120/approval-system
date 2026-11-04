@@ -5,6 +5,7 @@ import com.example.approval.document.dto.DecisionRequest;
 import com.example.approval.document.dto.DocumentDetailResponse;
 import com.example.approval.document.dto.DocumentRequest;
 import com.example.approval.document.dto.DocumentSummaryResponse;
+import com.example.approval.document.dto.SignatureVerificationResponse;
 import com.example.approval.document.service.DocumentService;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -55,18 +56,24 @@ public class DocumentController {
         return documentService.decided(auth.getName());
     }
 
-    /** 승인 (지금 내 차례일 때만) */
+    /** 승인 (지금 내 차례일 때만, 인증서 전자서명 필수) */
     @PostMapping("/{id}/approve")
     public DocumentDetailResponse approve(Authentication auth, @PathVariable Long id,
                                           @RequestBody(required = false) DecisionRequest body) {
-        return documentService.decide(auth.getName(), id, true, body == null ? null : body.comment());
+        return documentService.decide(auth.getName(), id, true, body);
     }
 
-    /** 반려 (사유 필수) */
+    /** 반려 (사유 필수, 인증서 전자서명 필수) */
     @PostMapping("/{id}/reject")
     public DocumentDetailResponse reject(Authentication auth, @PathVariable Long id,
                                          @RequestBody(required = false) DecisionRequest body) {
-        return documentService.decide(auth.getName(), id, false, body == null ? null : body.comment());
+        return documentService.decide(auth.getName(), id, false, body);
+    }
+
+    /** 결재 전자서명 검증 (인증서·서명값·문서 위변조 여부) */
+    @GetMapping("/{id}/signatures")
+    public SignatureVerificationResponse signatures(Authentication auth, @PathVariable Long id) {
+        return documentService.verifySignatures(auth.getName(), id);
     }
 
     /** 반려된 문서를 복사해 새 임시저장 문서로 */

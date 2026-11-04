@@ -1,6 +1,7 @@
 package com.example.approval.document.domain;
 
 import com.example.approval.domain.User;
+import com.example.approval.pki.domain.UserCertificate;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
@@ -34,6 +35,17 @@ public class ApprovalLine {
 
     private LocalDateTime actedAt;
 
+    // ----- 전자서명 (승인·반려할 때 결재자의 인증서로 서명) -----
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "certificate_id")
+    private UserCertificate certificate;
+
+    @Column(length = 1000)
+    private String signedMessage;  // 서명 원문
+
+    @Column(length = 100)
+    private String signatureValue; // ECDSA 서명값 (Base64)
+
     protected ApprovalLine() {}
 
     ApprovalLine(ApprovalDocument document, User approver, int stepOrder) {
@@ -45,24 +57,38 @@ public class ApprovalLine {
 
     void markCurrent() { this.status = LineStatus.CURRENT; }
 
-    void approve(String comment, LocalDateTime now) {
+    void approve(String comment, LocalDateTime now, LineSignature signature) {
         this.status = LineStatus.APPROVED;
         this.comment = comment;
         this.actedAt = now;
+        applySignature(signature);
     }
 
-    void reject(String comment, LocalDateTime now) {
+    void reject(String comment, LocalDateTime now, LineSignature signature) {
         this.status = LineStatus.REJECTED;
         this.comment = comment;
         this.actedAt = now;
+        applySignature(signature);
+    }
+
+    private void applySignature(LineSignature s) {
+        if (s == null) throw new IllegalArgumentException("전자서명이 필요합니다.");
+        this.certificate = s.certificate();
+        this.signedMessage = s.message();
+        this.signatureValue = s.signature();
     }
 
     public boolean isApprover(User user) { return approver.getId().equals(user.getId()); }
+
+    public boolean isSigned() { return signatureValue != null; }
 
     void reset() {
         this.status = LineStatus.WAITING;
         this.comment = null;
         this.actedAt = null;
+        this.certificate = null;
+        this.signedMessage = null;
+        this.signatureValue = null;
     }
 
     public Long getId() { return id; }
@@ -72,4 +98,7 @@ public class ApprovalLine {
     public LineStatus getStatus() { return status; }
     public String getComment() { return comment; }
     public LocalDateTime getActedAt() { return actedAt; }
+    public UserCertificate getCertificate() { return certificate; }
+    public String getSignedMessage() { return signedMessage; }
+    public String getSignatureValue() { return signatureValue; }
 }

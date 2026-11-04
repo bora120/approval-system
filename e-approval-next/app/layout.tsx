@@ -3,6 +3,7 @@ import "./globals.css";
 import "@/features/approval/approval.css";
 import "@/features/messenger/messenger.css";
 import "@/features/organization/organization.css";
+import "@/features/pki/pki.css";
 
 export const metadata: Metadata = {
   title: "전자결재시스템",

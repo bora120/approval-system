@@ -33,6 +33,11 @@ export default function ApprovalStampTable({ writer, submittedAt, status, lines 
               {l.status === 'APPROVED' && <span className="apv-stamp">승인</span>}
               {l.status === 'REJECTED' && <span className="apv-stamp apv-stamp--rejected">반려</span>}
               <div>{l.approver.name}</div>
+              {l.signed && (
+                <small className="apv-stamp-signed" title={`인증서 일련번호 ${l.certificateSerial ?? ''}`}>
+                  전자서명
+                </small>
+              )}
               {l.status === 'CURRENT' && <small className="apv-stamp-current">결재 차례</small>}
             </td>
           ))}

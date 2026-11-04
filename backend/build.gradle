@@ -22,9 +22,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
-    // 개발용 DB (파일 저장). MySQL로 바꿀 땐 아래 줄 주석 해제 + application.yml 수정
-    runtimeOnly 'com.h2database:h2'
-    // runtimeOnly 'com.mysql:mysql-connector-j'
+    // DB: Supabase (PostgreSQL). 접속 정보는 backend/.env 에 둔다 (.env.example 참고)
+    runtimeOnly 'org.postgresql:postgresql'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-security-test'

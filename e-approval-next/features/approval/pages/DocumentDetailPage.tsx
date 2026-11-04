@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
+import { useAuthState } from '@/lib/auth'
+import { loadSignerState, signDecision, SIGNER_STATE_MESSAGE, type SignerState } from '@/features/pki/certificate'
+import { isCryptoAvailable } from '@/features/pki/crypto'
+import CertPasswordDialog from '@/features/pki/components/CertPasswordDialog'
 import { documentApi } from '../api'
 import ApprovalStampTable from '../components/ApprovalStampTable'
+import SignaturePanel from '../components/SignaturePanel'
 import StatusBadge from '../components/StatusBadge'
 import type { DocumentDetail } from '../types'
 import { formatBytes, formatDate, formatDateTime, formatMoney, leaveDays } from '../utils'
@@ -18,6 +23,13 @@ export default function DocumentDetailPage() {
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const [comment, setComment] = useState('')
+  const { user } = useAuthState()
+  const [certProblem, setCertProblem] = useState('')
+  const [signing, setSigning] = useState<{
+    approve: boolean
+    comment: string | null
+    state: Extract<SignerState, { kind: 'ready' }>
+  } | null>(null)
 
   useEffect(() => {
     setDoc(null)
@@ -42,24 +54,60 @@ export default function DocumentDetailPage() {
     }
   }
 
+  /** 승인/반려 버튼 → 인증서 상태 확인 → 인증서 암호 입력 창 */
   const decide = async (approve: boolean) => {
     const text = comment.trim()
     if (!approve && !text) {
       setError('반려 사유를 입력하세요.')
       return
     }
-    if (!window.confirm(approve ? '이 문서를 승인할까요?' : '이 문서를 반려할까요?')) return
+    if (!user || !doc?.signingContent) {
+      setError('결재 정보를 불러오지 못했습니다. 새로고침 후 다시 시도하세요.')
+      return
+    }
+    if (!isCryptoAvailable()) {
+      setError('이 브라우저에서는 전자서명을 할 수 없습니다. http://localhost:3000 또는 https 로 접속하세요.')
+      return
+    }
     setBusy(true)
+    setError('')
+    setCertProblem('')
     try {
-      setDoc(await documentApi[approve ? 'approve' : 'reject'](docId, text))
-      setComment('')
-      setNotice(approve ? '승인했습니다.' : '반려했습니다.')
-      setError('')
+      const state = await loadSignerState(user.loginId)
+      if (state.kind !== 'ready') {
+        setCertProblem(SIGNER_STATE_MESSAGE[state.kind])
+        return
+      }
+      setSigning({ approve, comment: text || null, state })
     } catch (e) {
-      setError(e instanceof Error ? e.message : '처리에 실패했습니다.')
+      setError(e instanceof Error ? e.message : '인증서 정보를 불러오지 못했습니다.')
     } finally {
       setBusy(false)
     }
+  }
+
+  /** 인증서 암호 입력 후: 브라우저에서 서명 → 서버가 검증 후 결재 반영 */
+  const signAndSend = async (certPassword: string) => {
+    if (!signing || !doc?.signingContent) return
+    const step = doc.approvalLines.find((l) => l.status === 'CURRENT')?.stepOrder
+    if (step == null) throw new Error('결재할 차례를 찾을 수 없습니다. 새로고침 후 다시 시도하세요.')
+
+    const sig = await signDecision({
+      record: signing.state.record,
+      certPassword,
+      documentId: doc.id,
+      documentNumber: doc.docNumber,
+      signingContent: doc.signingContent,
+      step,
+      approve: signing.approve,
+      comment: signing.comment,
+    })
+    const payload = { comment: signing.comment, ...sig }
+    const updated = await (signing.approve ? documentApi.approve(docId, payload) : documentApi.reject(docId, payload))
+    setDoc(updated)
+    setComment('')
+    setNotice(signing.approve ? '전자서명 후 승인했습니다.' : '전자서명 후 반려했습니다.')
+    setSigning(null)
   }
 
   const copy = async () => {
@@ -97,6 +145,7 @@ export default function DocumentDetailPage() {
 
   const leaveHalf = doc.leaveType === 'HALF_AM' || doc.leaveType === 'HALF_PM'
   const comments = doc.approvalLines.filter((l) => l.comment)
+  const decidedCount = doc.approvalLines.filter((l) => l.status === 'APPROVED' || l.status === 'REJECTED').length
 
   return (
     <div className="apv-page">
@@ -106,6 +155,24 @@ export default function DocumentDetailPage() {
 
       {notice && <div className="apv-alert apv-alert--info apv-no-print">{notice}</div>}
       {error && <div className="apv-alert apv-alert--error apv-no-print">{error}</div>}
+      {certProblem && (
+        <div className="apv-alert apv-no-print">
+          {certProblem} <Link href="/certificate">인증서 관리로 이동 →</Link>
+        </div>
+      )}
+
+      {signing && (
+        <CertPasswordDialog
+          title={signing.approve ? '전자서명 후 승인' : '전자서명 후 반려'}
+          description={`${doc.docNumber ?? ''} 「${doc.title}」 문서를 ${
+            signing.approve ? '승인' : '반려'
+          }합니다. 인증서 암호를 입력하면 문서 내용과 결재 의견에 전자서명합니다.`}
+          cert={signing.state.cert}
+          confirmLabel={signing.approve ? '서명 후 승인' : '서명 후 반려'}
+          onSubmit={signAndSend}
+          onClose={() => setSigning(null)}
+        />
+      )}
 
       <div className="apv-detail-toolbar apv-no-print">
         <Link href="/documents" className="apv-btn apv-btn--ghost">
@@ -260,6 +327,13 @@ export default function DocumentDetailPage() {
             </ul>
           )}
         </section>
+
+        {decidedCount > 0 && (
+          <section className="apv-paper-section">
+            <h3>전자서명 검증</h3>
+            <SignaturePanel documentId={doc.id} refreshKey={doc.updatedAt} />
+          </section>
+        )}
 
         {comments.length > 0 && (
           <section className="apv-paper-section">

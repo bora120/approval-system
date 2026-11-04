@@ -1,5 +1,13 @@
 import { api, ApiError, readErrorMessage } from '@/lib/api-client'
-import type { Approver, DocumentDetail, DocumentPayload, DocumentStatus, DocumentSummary } from './types'
+import type {
+  Approver,
+  DecisionPayload,
+  DocumentDetail,
+  DocumentPayload,
+  DocumentStatus,
+  DocumentSummary,
+  SignatureVerification,
+} from './types'
 
 /** 파일 업로드용 요청 (Content-Type 은 브라우저가 boundary 와 함께 자동 설정) */
 async function sendMultipart<T>(url: string, payload: DocumentPayload, files: File[]): Promise<T> {
@@ -35,17 +43,22 @@ export const documentApi = {
 
   withdraw: (id: number) => api<DocumentDetail>(`/api/documents/${id}/withdraw`, { method: 'POST' }),
 
-  approve: (id: number, comment: string) =>
+  /** 승인 — 전자서명(DecisionPayload) 필수. comment 는 서명한 값 그대로 보내야 한다 */
+  approve: (id: number, payload: DecisionPayload) =>
     api<DocumentDetail>(`/api/documents/${id}/approve`, {
       method: 'POST',
-      body: JSON.stringify({ comment: comment.trim() || null }),
+      body: JSON.stringify(payload),
     }),
 
-  reject: (id: number, comment: string) =>
+  /** 반려 — 사유 필수 + 전자서명 필수 */
+  reject: (id: number, payload: DecisionPayload) =>
     api<DocumentDetail>(`/api/documents/${id}/reject`, {
       method: 'POST',
-      body: JSON.stringify({ comment: comment.trim() }),
+      body: JSON.stringify(payload),
     }),
+
+  /** 결재 전자서명 검증 결과 */
+  signatures: (id: number) => api<SignatureVerification>(`/api/documents/${id}/signatures`),
 
   /** 반려 문서를 새 임시저장 문서로 복사 */
   copy: (id: number) => api<DocumentDetail>(`/api/documents/${id}/copy`, { method: 'POST' }),

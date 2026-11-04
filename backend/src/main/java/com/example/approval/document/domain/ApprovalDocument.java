@@ -161,11 +161,12 @@ public class ApprovalDocument {
 
     /**
      * 승인: 지금 차례인 결재자만 가능. 다음 결재자에게 차례를 넘기고, 마지막이면 최종 승인.
+     * signature 는 DocumentSignatureService 가 검증을 마친 전자서명.
      */
-    public void approve(User approver, String comment) {
+    public void approve(User approver, String comment, LineSignature signature) {
         ApprovalLine line = requireTurnOf(approver);
         LocalDateTime now = LocalDateTime.now();
-        line.approve(comment, now);
+        line.approve(comment, now, signature);
         Optional<ApprovalLine> next = lines.stream()
                 .filter(l -> l.getStepOrder() == line.getStepOrder() + 1)
                 .findFirst();
@@ -179,10 +180,10 @@ public class ApprovalDocument {
     }
 
     /** 반려: 지금 차례인 결재자만 가능. 문서는 즉시 반려 상태로 끝난다 */
-    public void reject(User approver, String comment) {
+    public void reject(User approver, String comment, LineSignature signature) {
         ApprovalLine line = requireTurnOf(approver);
         LocalDateTime now = LocalDateTime.now();
-        line.reject(comment, now);
+        line.reject(comment, now, signature);
         this.status = DocumentStatus.REJECTED;
         this.completedAt = now;
         this.updatedAt = now;
@@ -192,6 +193,11 @@ public class ApprovalDocument {
     public boolean isTurnOf(User user) {
         return status == DocumentStatus.IN_PROGRESS
                 && getCurrentLine().map(l -> l.isApprover(user)).orElse(false);
+    }
+
+    /** 이 사용자가 지금 처리할 결재선 (차례가 아니면 예외). 서명 검증을 결재 전에 하기 위해 사용 */
+    public ApprovalLine lineToDecide(User user) {
+        return requireTurnOf(user);
     }
 
     private ApprovalLine requireTurnOf(User user) {
