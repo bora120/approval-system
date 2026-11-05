@@ -5,6 +5,7 @@ import com.example.approval.document.dto.DecisionRequest;
 import com.example.approval.document.dto.DocumentDetailResponse;
 import com.example.approval.document.dto.DocumentRequest;
 import com.example.approval.document.dto.DocumentSummaryResponse;
+import com.example.approval.document.dto.SignatureRequest;
 import com.example.approval.document.dto.SignatureVerificationResponse;
 import com.example.approval.document.service.DocumentService;
 import org.springframework.http.ContentDisposition;
@@ -56,6 +57,13 @@ public class DocumentController {
         return documentService.decided(auth.getName());
     }
 
+    /** 상신 (임시저장 문서 + 기안자 인증서 전자서명 필수) */
+    @PostMapping("/{id}/submit")
+    public DocumentDetailResponse submit(Authentication auth, @PathVariable Long id,
+                                         @RequestBody(required = false) SignatureRequest body) {
+        return documentService.submit(auth.getName(), id, body);
+    }
+
     /** 승인 (지금 내 차례일 때만, 인증서 전자서명 필수) */
     @PostMapping("/{id}/approve")
     public DocumentDetailResponse approve(Authentication auth, @PathVariable Long id,
@@ -88,7 +96,7 @@ public class DocumentController {
         return documentService.getDetail(auth.getName(), id);
     }
 
-    /** 새 문서 작성 (data.submit=true 면 바로 상신) */
+    /** 새 문서 작성 (임시저장). 상신은 POST /{id}/submit 에 기안자 전자서명과 함께 */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     public DocumentDetailResponse create(Authentication auth,

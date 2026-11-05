@@ -1,5 +1,6 @@
 package com.example.approval.config;
 
+import com.example.approval.document.domain.DocumentIntegrity;
 import com.example.approval.domain.Position;
 import com.example.approval.domain.Role;
 import org.slf4j.Logger;
@@ -44,7 +45,8 @@ public class EnumColumnCompatibility implements ApplicationRunner {
 
     private static final List<EnumColumn> COLUMNS = List.of(
             new EnumColumn("users", "role", Role.values(), false),
-            new EnumColumn("users", "position", Position.values(), true)
+            new EnumColumn("users", "position", Position.values(), true),
+            new EnumColumn("approval_documents", "integrity", DocumentIntegrity.values(), true)
     );
 
     private final DataSource dataSource;

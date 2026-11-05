@@ -9,6 +9,7 @@ import {
   sha256Hex,
   signText,
   unlockKey,
+  type SignAction,
 } from './crypto'
 import { getLocalKey, saveLocalKey } from './keystore'
 import type { CertificateInfo, LocalKeyRecord } from './types'
@@ -67,32 +68,42 @@ export const SIGNER_STATE_MESSAGE: Record<Exclude<SignerState['kind'], 'ready'>,
   mismatch: '이 브라우저의 개인키는 예전 인증서용입니다. 인증서 관리에서 재발급하세요.',
 }
 
-export interface DecisionSignature {
+/** 서버가 내려주는 "지금 서명할 내용" (DocumentDetail.signing) */
+export interface SigningContext {
+  step: number
+  documentNumber: string
+  documentContent: string
+  previousSignatureSha256: string
+}
+
+export interface DocumentSignature {
   signature: string
   signedAt: string
   certificateSerial: string
 }
 
-/** 결재(승인/반려) 서명 */
-export async function signDecision(args: {
+/**
+ * 문서 서명 (상신·승인·반려 공통).
+ * 문서 내용 해시 + 결재 내용 + 바로 앞 서명 해시를 묶은 원문에 서명한다.
+ */
+export async function signDocumentAction(args: {
   record: LocalKeyRecord
   certPassword: string
   documentId: number
-  documentNumber: string | null
-  signingContent: string
-  step: number
-  approve: boolean
+  signing: SigningContext
+  action: SignAction
   comment: string | null
-}): Promise<DecisionSignature> {
+}): Promise<DocumentSignature> {
   const key = await unlockKey(args.record, args.certPassword) // 암호가 틀리면 여기서 에러
   const signedAt = new Date().toISOString()
   const message = await buildSignedMessage({
     documentId: args.documentId,
-    documentNumber: args.documentNumber,
-    documentHash: await sha256Hex(args.signingContent),
-    step: args.step,
-    approve: args.approve,
+    documentNumber: args.signing.documentNumber,
+    documentHash: await sha256Hex(args.signing.documentContent),
+    step: args.signing.step,
+    action: args.action,
     comment: args.comment,
+    previousSignatureSha256: args.signing.previousSignatureSha256,
     signer: args.record.loginId,
     certificateSerial: args.record.serialNumber,
     signedAt,

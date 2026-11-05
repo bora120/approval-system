@@ -9,7 +9,8 @@ import java.util.List;
 
 /**
  * 문서 저장/상신 요청 (multipart 의 "data" 파트에 JSON 으로 담겨 옴).
- * submit=false 면 임시저장, true 면 상신. 상신일 때만 필수 항목을 엄격하게 검사한다.
+ * 저장은 항상 임시저장이다. 상신은 기안자 전자서명이 필요하므로 POST /api/documents/{id}/submit 으로 따로 한다.
+ * submit=true 는 예전 방식 호환용 필드로, 보내면 거부된다.
  */
 public record DocumentRequest(
         DocumentType type,

@@ -2,6 +2,7 @@ package com.example.approval.document.domain;
 
 import com.example.approval.domain.User;
 import com.example.approval.exception.ApiException;
+import com.example.approval.pki.domain.UserCertificate;
 import jakarta.persistence.*;
 import org.springframework.http.HttpStatus;
 
@@ -75,6 +76,27 @@ public class ApprovalDocument {
     private LocalDateTime submittedAt;
     private LocalDateTime completedAt;
 
+    // ----- 기안자 전자서명 (상신할 때 기안자 인증서로 서명 = 서명 사슬의 첫 고리) -----
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "writer_certificate_id")
+    private UserCertificate writerCertificate;
+
+    @Column(length = 1000)
+    private String writerSignedMessage;  // 서명 원문
+
+    @Column(length = 100)
+    private String writerSignatureValue; // ECDSA 서명값 (Base64)
+
+    // ----- 무결성(서명 검증) 결과: 결재·열람·주기 감사 때 자동 갱신 -----
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private DocumentIntegrity integrity;
+
+    @Column(length = 300)
+    private String integrityDetail;      // 실패했다면 어떤 검증 항목이 실패했는지
+
+    private LocalDateTime integrityCheckedAt;
+
     protected ApprovalDocument() {}
 
     public ApprovalDocument(User writer, DocumentType type) {
@@ -82,6 +104,7 @@ public class ApprovalDocument {
         this.type = type;
         this.title = "";
         this.status = DocumentStatus.DRAFT;
+        this.integrity = DocumentIntegrity.DRAFT;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = this.createdAt;
     }
@@ -132,21 +155,41 @@ public class ApprovalDocument {
 
     // ===================== 상태 변경 =====================
 
-    /** 상신: 첫 번째 결재자에게 차례가 넘어감 */
-    public void submit(String docNumber) {
+    /**
+     * 상신: 기안자 전자서명(검증 완료)을 붙이고 첫 번째 결재자에게 차례를 넘긴다.
+     * 기안자 서명이 서명 사슬의 첫 고리가 된다.
+     */
+    public void submit(String docNumber, LineSignature writerSignature) {
         requireDraft();
         if (lines.isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "결재자를 1명 이상 지정하세요.");
         }
+        if (writerSignature == null) {
+            throw new IllegalArgumentException("기안자 전자서명이 필요합니다.");
+        }
         if (this.docNumber == null) {
             this.docNumber = docNumber; // 회수 후 재상신하면 기존 번호 유지
         }
+        this.writerCertificate = writerSignature.certificate();
+        this.writerSignedMessage = writerSignature.message();
+        this.writerSignatureValue = writerSignature.signature();
         this.status = DocumentStatus.IN_PROGRESS;
         this.submittedAt = LocalDateTime.now();
         this.updatedAt = this.submittedAt;
         lines.forEach(ApprovalLine::reset);
         lines.get(0).markCurrent();
+        recordIntegrity(DocumentIntegrity.VALID, null, this.submittedAt);
     }
+
+    /** 서명 검증 결과 기록 (내용 수정이 아니므로 updatedAt 은 바꾸지 않음) */
+    public void recordIntegrity(DocumentIntegrity result, String detail, LocalDateTime checkedAt) {
+        this.integrity = result;
+        this.integrityDetail = detail == null ? null
+                : detail.length() > 300 ? detail.substring(0, 300) : detail;
+        this.integrityCheckedAt = checkedAt;
+    }
+
+    public boolean isWriterSigned() { return writerSignatureValue != null; }
 
     /** 회수: 아직 아무도 결재하지 않았을 때만 임시저장 상태로 되돌림 */
     public void withdraw() {
@@ -157,6 +200,11 @@ public class ApprovalDocument {
         this.submittedAt = null;
         this.updatedAt = LocalDateTime.now();
         lines.forEach(ApprovalLine::reset);
+        // 회수하면 내용을 다시 고칠 수 있으므로 기안자 서명도 무효 → 재상신 때 새로 서명
+        this.writerCertificate = null;
+        this.writerSignedMessage = null;
+        this.writerSignatureValue = null;
+        recordIntegrity(DocumentIntegrity.DRAFT, null, this.updatedAt);
     }
 
     /**
@@ -257,4 +305,10 @@ public class ApprovalDocument {
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public LocalDateTime getSubmittedAt() { return submittedAt; }
     public LocalDateTime getCompletedAt() { return completedAt; }
+    public UserCertificate getWriterCertificate() { return writerCertificate; }
+    public String getWriterSignedMessage() { return writerSignedMessage; }
+    public String getWriterSignatureValue() { return writerSignatureValue; }
+    public DocumentIntegrity getIntegrity() { return integrity; }
+    public String getIntegrityDetail() { return integrityDetail; }
+    public LocalDateTime getIntegrityCheckedAt() { return integrityCheckedAt; }
 }

@@ -6,10 +6,11 @@ interface Props {
   submittedAt: string | null
   status: DocumentStatus
   lines: ApprovalLine[]
+  writerSigned: boolean
 }
 
 /** 종이 결재 문서의 "결재란"처럼 직책 / 이름(도장) / 날짜를 칸으로 보여준다 */
-export default function ApprovalStampTable({ writer, submittedAt, status, lines }: Props) {
+export default function ApprovalStampTable({ writer, submittedAt, status, lines, writerSigned }: Props) {
   return (
     <table className="apv-stamp-table">
       <tbody>
@@ -27,6 +28,7 @@ export default function ApprovalStampTable({ writer, submittedAt, status, lines 
         <tr>
           <td className="apv-stamp-sign">
             {status !== 'DRAFT' ? <span className="apv-stamp apv-stamp--writer">{writer.name}</span> : writer.name}
+            {writerSigned && <small className="apv-stamp-signed">전자서명</small>}
           </td>
           {lines.map((l) => (
             <td key={l.stepOrder} className={`apv-stamp-sign apv-stamp-sign--${l.status.toLowerCase()}`}>

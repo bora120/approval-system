@@ -16,4 +16,7 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
 
     /** 문서번호 발급용: 예) EXP-2026- 로 시작하는 문서 수 */
     long countByTypeAndDocNumberStartingWith(DocumentType type, String prefix);
+
+    /** 전자서명 주기 감사용: 상신된 문서를 id 순서대로 50건씩 */
+    List<ApprovalDocument> findTop50ByStatusNotAndIdGreaterThanOrderByIdAsc(DocumentStatus status, Long id);
 }

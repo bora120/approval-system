@@ -1,0 +1,4 @@
+# 리눅스(배포 서버)에서 실행되는 스크립트는 줄바꿈을 LF 로 고정
+# (윈도우의 CRLF 로 올라가면 "/bin/sh^M: bad interpreter" 오류로 빌드 실패)
+backend/gradlew text eol=lf
+*.sh text eol=lf

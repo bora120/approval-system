@@ -133,28 +133,33 @@ export function buildCertRequestMessage(loginId: string, challenge: string, publ
   )
 }
 
+/** 서명 종류: 상신(기안자) / 승인 / 반려 */
+export type SignAction = 'SUBMIT' | 'APPROVE' | 'REJECT'
+
 export interface SignedMessageInput {
   documentId: number
-  documentNumber: string | null
+  documentNumber: string | null // 기안자(step 0)는 빈 값
   documentHash: string
-  step: number
-  approve: boolean
+  step: number // 0 = 기안, 1.. = 결재 순서
+  action: SignAction
   comment: string | null
+  previousSignatureSha256: string // 바로 앞 서명의 해시 (기안자는 "none") → 서명 사슬
   signer: string
   certificateSerial: string
   signedAt: string
 }
 
-/** 결재 서명 원문 — 서버 DocumentSignatureService.signedMessage */
+/** 결재 서명 원문 v2 — 서버 DocumentSignatureService.signedMessage 와 글자 하나까지 같아야 한다 */
 export async function buildSignedMessage(m: SignedMessageInput): Promise<string> {
   return [
-    'E-APPROVAL-SIGNATURE v1',
+    'E-APPROVAL-SIGNATURE v2',
     `document-id: ${m.documentId}`,
     `document-number: ${m.documentNumber ?? ''}`,
     `document-sha256: ${m.documentHash}`,
     `step: ${m.step}`,
-    `decision: ${m.approve ? 'APPROVE' : 'REJECT'}`,
+    `action: ${m.action}`,
     `comment-sha256: ${await sha256Hex(m.comment ?? '')}`,
+    `previous-signature-sha256: ${m.previousSignatureSha256}`,
     `signer: ${m.signer}`,
     `certificate-serial: ${m.certificateSerial}`,
     `signed-at: ${m.signedAt}`,

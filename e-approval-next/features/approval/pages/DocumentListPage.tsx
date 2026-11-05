@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { documentApi } from '../api'
+import IntegrityBadge from '../components/IntegrityBadge'
 import StatusBadge from '../components/StatusBadge'
 import type { DocumentStatus, DocumentSummary } from '../types'
 import { DOCUMENT_TYPES, STATUS_TABS } from '../types'
@@ -122,6 +123,7 @@ export default function DocumentListPage() {
                   <th className="apv-col-title">제목</th>
                   {showWriter && <th>기안자</th>}
                   <th>상태</th>
+                  <th>전자서명</th>
                   <th>현재 결재자</th>
                   <th>{showWriter ? '상신일' : '작성일'}</th>
                 </tr>
@@ -145,6 +147,9 @@ export default function DocumentListPage() {
                     )}
                     <td>
                       <StatusBadge status={d.status} />
+                    </td>
+                    <td>
+                      {d.status === 'DRAFT' ? '-' : <IntegrityBadge integrity={d.integrity} label={d.integrityLabel} />}
                     </td>
                     <td>{d.currentApproverName ?? '-'}</td>
                     <td>{formatDate(showWriter ? d.submittedAt : d.createdAt)}</td>

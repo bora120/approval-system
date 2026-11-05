@@ -1,4 +1,5 @@
 // 결재 문서 관련 타입. 값은 백엔드 enum 이름과 맞춰야 함
+import type { SigningContext } from '@/features/pki/certificate'
 
 export type DocumentType = 'GENERAL' | 'EXPENSE' | 'LEAVE'
 export type DocumentStatus = 'DRAFT' | 'IN_PROGRESS' | 'APPROVED' | 'REJECTED'
@@ -67,27 +68,35 @@ export interface ApprovalLine {
   certificateSerial: string | null
 }
 
-/** 승인/반려 요청 (전자서명 포함) */
-export interface DecisionPayload {
-  comment: string | null
+/** 상신 요청 (기안자 전자서명) */
+export interface SubmitPayload {
   signature: string
   signedAt: string
   certificateSerial: string
 }
 
-/** GET /api/documents/:id/signatures — 결재 전자서명 검증 결과 */
+/** 승인/반려 요청 (결재자 전자서명 + 의견) */
+export interface DecisionPayload extends SubmitPayload {
+  comment: string | null
+}
+
+/** 서명 사슬 검증 결과 (백엔드 DocumentIntegrity) */
+export type DocumentIntegrity = 'DRAFT' | 'VALID' | 'INVALID' | 'LEGACY'
+
+/** GET /api/documents/:id/signatures — 서명 사슬 검증 결과 */
 export interface SignatureCheck {
   label: string
   ok: boolean
   detail: string
 }
 
-export interface SignatureLineResult {
-  stepOrder: number
+export interface SignatureResult {
+  step: number // 0 = 기안, 1.. = 결재 순서
+  role: string // 기안 / 결재
   signerName: string
   signerPositionLabel: string
-  decision: 'APPROVED' | 'REJECTED'
-  decisionLabel: string
+  action: 'SUBMIT' | 'APPROVE' | 'REJECT'
+  actionLabel: string
   signed: boolean
   valid: boolean
   summary: string
@@ -103,16 +112,22 @@ export interface SignatureLineResult {
     revokedAt: string | null
     algorithm: string
   } | null
-  actedAt: string | null
+  signedAt: string | null
   signedMessage: string | null
   signature: string | null
+  signatureDigest: string | null
 }
 
 export interface SignatureVerification {
+  integrity: DocumentIntegrity
+  integrityLabel: string
+  summary: string
+  checkedAt: string
   documentHash: string
   canonicalContent: string
   caSubject: string | null
-  signatures: SignatureLineResult[]
+  documentChecks: SignatureCheck[]
+  signatures: SignatureResult[]
 }
 
 export interface AttachmentInfo {
@@ -137,6 +152,8 @@ export interface DocumentSummary {
   attachmentCount: number
   createdAt: string
   submittedAt: string | null
+  integrity: DocumentIntegrity | null // null = 아직 검증 안 됨
+  integrityLabel: string
 }
 
 export interface DocumentDetail {
@@ -172,12 +189,20 @@ export interface DocumentDetail {
     canEdit: boolean
     canDelete: boolean
     canWithdraw: boolean
+    canSubmit: boolean // 기안자 전자서명 후 상신
     canDecide: boolean
     canCopy: boolean
   }
 
-  /** 서명 대상 문서 내용 (내가 결재할 차례일 때만 옴). 이 값의 SHA-256 이 서명 원문에 들어간다 */
-  signingContent: string | null
+  // ----- 전자서명 -----
+  writerSigned: boolean
+  writerCertificateSerial: string | null
+  integrity: DocumentIntegrity | null
+  integrityLabel: string
+  integrityDetail: string | null
+  integrityCheckedAt: string | null
+  /** 지금 내가 서명할 차례일 때만 옴 (상신 또는 결재) */
+  signing: SigningContext | null
 }
 
 /** 작성 화면 → 서버로 보내는 문서 내용 */
@@ -193,5 +218,6 @@ export interface DocumentPayload {
   leaveEndDate: string | null
   approverIds: number[]
   removedAttachmentIds: number[]
-  submit: boolean
+  /** 항상 false. 상신은 저장 후 documentApi.submit(전자서명) 으로 따로 한다 */
+  submit: false
 }

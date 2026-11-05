@@ -1,12 +1,12 @@
 server:
-  port: ${PORT:8080}
+  port: ${PORT:8080}         # 배포 서버(Render 등)는 PORT 환경변수로 포트를 지정한다. 로컬은 8080
   servlet:
     session:
       timeout: 30m
       cookie:
-        http-only: true # JS에서 세션 쿠키 접근 불가 (XSS로 세션 탈취 방지)
-        same-site: lax # 다른 사이트에서 보낸 요청엔 쿠키 미전송 (CSRF 완화)
-        secure: ${COOKIE_SECURE:false}
+        http-only: true      # JS에서 세션 쿠키 접근 불가 (XSS로 세션 탈취 방지)
+        same-site: lax       # 다른 사이트에서 보낸 요청엔 쿠키 미전송 (CSRF 완화)
+        secure: ${COOKIE_SECURE:false} # 배포(https)에서는 true → https 로만 쿠키 전송. 로컬(http)은 false
 
 spring:
   config:
@@ -34,6 +34,8 @@ spring:
       hibernate:
         default_schema: app
         format_sql: true
+        # 연관 엔티티(결재선·인증서·사용자)를 100개씩 묶어서 조회 → 목록·서명 검증 시 쿼리 수(N+1) 감소
+        default_batch_fetch_size: 100
 
 app:
   setup:
@@ -41,10 +43,14 @@ app:
     # 직접 정하려면 실행 전에 환경변수 CEO_SETUP_TOKEN 을 설정 (PowerShell: $env:CEO_SETUP_TOKEN="원하는값")
     token: ${CEO_SETUP_TOKEN:}
   upload:
-    dir: ./uploads # 결재 첨부파일·메신저 파일(암호문) 저장 폴더
+    dir: ./uploads          # 결재 첨부파일·메신저 파일(암호문) 저장 폴더
   messenger:
-    file-retention-days: 7 # 메신저로 보낸 파일 보관 기간(일). 지나면 자동 삭제
+    file-retention-days: 7  # 메신저로 보낸 파일 보관 기간(일). 지나면 자동 삭제
   pki:
     # 사내 인증기관(CA) 개인키를 암호화하는 비밀번호 (backend/.env 의 CA_KEY_PASSWORD).
     # 팀원 모두 같은 값을 써야 한다. 처음 서버를 켤 때 이 값으로 CA 가 만들어진다.
     ca-password: ${CA_KEY_PASSWORD:}
+  signature:
+    # 전자서명 주기 감사: 상신된 모든 문서의 서명 사슬을 이 간격으로 다시 검증 (밀리초, 기본 30분)
+    audit-interval-ms: 1800000
+    audit-initial-delay-ms: 120000

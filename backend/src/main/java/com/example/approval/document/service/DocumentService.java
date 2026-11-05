@@ -6,6 +6,7 @@ import com.example.approval.document.dto.DecisionRequest;
 import com.example.approval.document.dto.DocumentDetailResponse;
 import com.example.approval.document.dto.DocumentRequest;
 import com.example.approval.document.dto.DocumentSummaryResponse;
+import com.example.approval.document.dto.SignatureRequest;
 import com.example.approval.document.dto.SignatureVerificationResponse;
 import com.example.approval.document.repository.ApprovalDocumentRepository;
 import com.example.approval.document.repository.ApprovalLineRepository;
@@ -21,6 +22,8 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.time.Year;
 import java.util.*;
 
@@ -52,27 +55,29 @@ public class DocumentService {
 
     // ============================== 작성 / 수정 ==============================
 
-    /** 새 문서 작성 (임시저장 또는 바로 상신) */
+    /**
+     * 새 문서 작성 (임시저장).
+     * 상신은 기안자 전자서명이 필요하므로 저장 후 submit(...) 으로 따로 요청한다.
+     */
     @Transactional
     public DocumentDetailResponse create(String loginId, DocumentRequest req, List<MultipartFile> files) {
         User writer = currentUser(loginId);
+        rejectUnsignedSubmit(req);
         if (req.type() == null) {
             throw badRequest("문서 종류를 선택하세요.");
         }
         ApprovalDocument doc = new ApprovalDocument(writer, req.type());
         applyRequest(doc, writer, req, files);
         documentRepository.save(doc);
-        if (req.submit()) {
-            submit(doc);
-        }
         documentRepository.flush(); // 새 결재선/첨부파일 ID를 응답에 담기 위해 즉시 저장
         return DocumentDetailResponse.of(doc, writer);
     }
 
-    /** 임시저장 문서 수정 (수정 후 바로 상신도 가능) */
+    /** 임시저장 문서 수정 */
     @Transactional
     public DocumentDetailResponse update(String loginId, Long id, DocumentRequest req, List<MultipartFile> files) {
         User writer = currentUser(loginId);
+        rejectUnsignedSubmit(req);
         ApprovalDocument doc = findDocument(id);
         if (!doc.isWrittenBy(writer)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "본인이 작성한 문서만 수정할 수 있습니다.");
@@ -84,10 +89,40 @@ public class DocumentService {
             throw badRequest("문서 종류를 선택하세요.");
         }
         applyRequest(doc, writer, req, files);
-        if (req.submit()) {
-            submit(doc);
-        }
         documentRepository.flush(); // 새 결재선/첨부파일 ID를 응답에 담기 위해 즉시 저장
+        return DocumentDetailResponse.of(doc, writer);
+    }
+
+    /** 예전 방식(저장과 동시에 서명 없이 상신)은 거부 */
+    private static void rejectUnsignedSubmit(DocumentRequest req) {
+        if (req != null && req.submit()) {
+            throw badRequest("상신은 기안자 전자서명이 필요합니다. 임시저장 후 전자서명으로 상신하세요.");
+        }
+    }
+
+    /**
+     * 상신 = 기안자 전자서명 (서명 사슬의 첫 고리).
+     * 양식 필수 항목 확인 → 기안자 서명 검증 → 문서번호 발급 → 첫 결재자에게 차례.
+     */
+    @Transactional
+    public DocumentDetailResponse submit(String loginId, Long id, SignatureRequest req) {
+        User writer = currentUser(loginId);
+        ApprovalDocument doc = findDocument(id);
+        if (!doc.isWrittenBy(writer)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "본인이 작성한 문서만 상신할 수 있습니다.");
+        }
+        if (!doc.isDraft()) {
+            throw new ApiException(HttpStatus.CONFLICT, "임시저장 상태의 문서만 상신할 수 있습니다.");
+        }
+        validateForSubmit(doc);
+        LineSignature signature = signatureService.verifyNewSignature(writer, doc, 0,
+                DocumentSignatureService.Action.SUBMIT, null, DocumentSignatureService.NO_PREVIOUS,
+                req == null ? null : req.signature(),
+                req == null ? null : req.signedAt(),
+                req == null ? null : req.certificateSerial());
+        String number = doc.getDocNumber() != null ? doc.getDocNumber() : nextDocNumber(doc.getType());
+        doc.submit(number, signature);
+        documentRepository.flush();
         return DocumentDetailResponse.of(doc, writer);
     }
 
@@ -126,11 +161,6 @@ public class DocumentService {
         }
     }
 
-    private void submit(ApprovalDocument doc) {
-        validateForSubmit(doc);
-        doc.submit(nextDocNumber(doc.getType()));
-    }
-
     // ============================== 회수 / 삭제 ==============================
 
     @Transactional
@@ -164,7 +194,10 @@ public class DocumentService {
     private static final int MAX_COMMENT = 500;
 
     /**
-     * 승인·반려. 결재자의 인증서 전자서명을 먼저 검증하고, 통과해야만 결재를 반영한다.
+     * 승인·반려 = 결재자 전자서명을 서명 사슬에 추가하는 것.
+     *  1) 지금까지의 서명 사슬(기안 + 앞 결재자들)을 먼저 자동 검증 → 하나라도 깨져 있으면 결재 불가
+     *  2) 내 서명이 바로 앞 서명을 가리키는지 + 서명값 검증
+     *  3) 결재 반영 + 무결성 결과 기록
      * 의견은 서명 원문(comment-sha256)에 들어가므로 앞뒤 공백도 바꾸지 않고 받은 그대로 저장한다.
      */
     @Transactional
@@ -179,23 +212,83 @@ public class DocumentService {
         if (!approve && opinion == null) throw badRequest("반려 사유를 입력하세요.");
 
         ApprovalLine line = doc.lineToDecide(user); // 내 차례가 아니면 여기서 거절
-        LineSignature signature = signatureService.verifyDecision(user, doc, line, approve, opinion, req);
+
+        SignatureVerificationResponse chain = signatureService.verifyAll(doc);
+        if (!DocumentIntegrity.VALID.name().equals(chain.integrity())) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "앞선 전자서명 검증에 실패해서 결재할 수 없습니다. (" + chain.summary() + ")");
+        }
+        String previous = DocumentSignatureService.previousDigest(doc, line.getStepOrder());
+        LineSignature signature = signatureService.verifyNewSignature(user, doc, line.getStepOrder(),
+                approve ? DocumentSignatureService.Action.APPROVE : DocumentSignatureService.Action.REJECT,
+                opinion, previous,
+                req == null ? null : req.signature(),
+                req == null ? null : req.signedAt(),
+                req == null ? null : req.certificateSerial());
         if (approve) {
             doc.approve(user, opinion, signature);
         } else {
             doc.reject(user, opinion, signature);
         }
+        doc.recordIntegrity(DocumentIntegrity.VALID, null, LocalDateTime.now());
         documentRepository.flush();
         return DocumentDetailResponse.of(doc, user);
     }
 
-    /** 결재 전자서명 검증 결과 (열람 권한이 있는 사람만) */
-    @Transactional(readOnly = true)
+    /** 전자서명 검증 결과 (열람 권한이 있는 사람만). 검증 결과는 문서에 기록된다 */
+    @Transactional
     public SignatureVerificationResponse verifySignatures(String loginId, Long id) {
         User user = currentUser(loginId);
         ApprovalDocument doc = findDocument(id);
         checkReadable(doc, user);
-        return signatureService.verifyAll(doc);
+        return applyVerification(doc);
+    }
+
+    /** 서명 사슬을 검증하고 결과를 문서의 무결성 필드에 기록 */
+    private SignatureVerificationResponse applyVerification(ApprovalDocument doc) {
+        SignatureVerificationResponse result = signatureService.verifyAll(doc);
+        DocumentIntegrity integrity = DocumentIntegrity.valueOf(result.integrity());
+        doc.recordIntegrity(integrity, integrity == DocumentIntegrity.VALID ? null : result.summary(),
+                result.checkedAt());
+        return result;
+    }
+
+    /** 문서를 열 때 자동 검증. 결과가 같고 최근에 확인했다면 DB 쓰기를 생략 */
+    private void refreshIntegrity(ApprovalDocument doc) {
+        if (doc.isDraft()) return;
+        SignatureVerificationResponse result = signatureService.verifyAll(doc);
+        DocumentIntegrity integrity = DocumentIntegrity.valueOf(result.integrity());
+        boolean recent = doc.getIntegrityCheckedAt() != null
+                && doc.getIntegrityCheckedAt().isAfter(result.checkedAt().minus(INTEGRITY_RECHECK_INTERVAL));
+        if (integrity != doc.getIntegrity() || !recent) {
+            doc.recordIntegrity(integrity, integrity == DocumentIntegrity.VALID ? null : result.summary(),
+                    result.checkedAt());
+        }
+    }
+
+    private static final Duration INTEGRITY_RECHECK_INTERVAL = Duration.ofMinutes(10);
+
+    /** 주기 감사 한 묶음의 결과 */
+    public record AuditBatch(long lastId, int checked, List<String> invalidDocuments) {}
+
+    /**
+     * 주기 감사(SignatureAuditJob): 상신된 문서의 서명 사슬을 id 순서대로 50건씩 다시 검증해서 기록.
+     * 사람이 문서를 열지 않아도 DB 직접 조작 같은 위·변조를 자동으로 찾아낸다.
+     */
+    @Transactional
+    public AuditBatch auditBatch(long afterId) {
+        List<ApprovalDocument> docs =
+                documentRepository.findTop50ByStatusNotAndIdGreaterThanOrderByIdAsc(DocumentStatus.DRAFT, afterId);
+        List<String> invalid = new ArrayList<>();
+        long lastId = afterId;
+        for (ApprovalDocument doc : docs) {
+            SignatureVerificationResponse r = applyVerification(doc);
+            if (DocumentIntegrity.INVALID.name().equals(r.integrity())) {
+                invalid.add((doc.getDocNumber() == null ? "#" + doc.getId() : doc.getDocNumber()) + " " + r.summary());
+            }
+            lastId = doc.getId();
+        }
+        return new AuditBatch(lastId, docs.size(), invalid);
     }
 
     /** 반려된 문서를 바탕으로 새 임시저장 문서를 만든다 (첨부파일은 다시 올려야 함) */
@@ -232,11 +325,13 @@ public class DocumentService {
 
     // ============================== 조회 ==============================
 
-    @Transactional(readOnly = true)
+    /** 문서 상세. 열 때마다 서명 사슬을 자동 검증해서 무결성 결과를 갱신한다 */
+    @Transactional
     public DocumentDetailResponse getDetail(String loginId, Long id) {
         User user = currentUser(loginId);
         ApprovalDocument doc = findDocument(id);
         checkReadable(doc, user);
+        refreshIntegrity(doc);
         return DocumentDetailResponse.of(doc, user);
     }
 

@@ -68,6 +68,20 @@
 
 .apv-stamp-signed { display: block; font-size: 10px; color: var(--c-sub); margin-top: 1px; }
 
+/* ----- 무결성(서명 사슬 검증) 배지 ----- */
+.pki-integrity { margin-left: 0; white-space: nowrap; }
+.pki-integrity--valid { border-color: var(--c-black); color: var(--c-black); }
+.pki-integrity--invalid { background: var(--c-black); border-color: var(--c-black); color: var(--c-white); }
+.pki-integrity--legacy, .pki-integrity--unchecked, .pki-integrity--draft { color: var(--c-faint); }
+
+/* ----- 서명 사슬: 순서 표시 ----- */
+.pki-verify-list { padding-left: 0; }
+.pki-chain-step {
+  display: inline-block; min-width: 34px; padding: 1px 6px; text-align: center;
+  background: var(--c-black); color: var(--c-white); font-size: var(--fs-xs); font-weight: 600;
+}
+.pki-verify-item + .pki-verify-item .pki-chain-step::before { content: "↳ "; }
+
 @media print {
   .pki-modal { display: none; }
 }

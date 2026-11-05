@@ -7,6 +7,7 @@ import type {
   DocumentStatus,
   DocumentSummary,
   SignatureVerification,
+  SubmitPayload,
 } from './types'
 
 /** 파일 업로드용 요청 (Content-Type 은 브라우저가 boundary 와 함께 자동 설정) */
@@ -42,6 +43,13 @@ export const documentApi = {
     sendMultipart<DocumentDetail>(`/api/documents/${id}`, payload, files),
 
   withdraw: (id: number) => api<DocumentDetail>(`/api/documents/${id}/withdraw`, { method: 'POST' }),
+
+  /** 상신 — 임시저장 문서 + 기안자 전자서명 (서명 사슬의 첫 고리) */
+  submit: (id: number, payload: SubmitPayload) =>
+    api<DocumentDetail>(`/api/documents/${id}/submit`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   /** 승인 — 전자서명(DecisionPayload) 필수. comment 는 서명한 값 그대로 보내야 한다 */
   approve: (id: number, payload: DecisionPayload) =>

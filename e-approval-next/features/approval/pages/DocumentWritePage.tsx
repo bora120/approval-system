@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { useAuthState } from '@/lib/auth'
+import { signDocumentAction } from '@/features/pki/certificate'
+import { useCertificateSigner } from '@/features/pki/useCertificateSigner'
 import { approvalLineApi, documentApi } from '../api'
 import ApprovalLineEditor from '../components/ApprovalLineEditor'
 import AttachmentInput from '../components/AttachmentInput'
@@ -76,6 +78,7 @@ export default function DocumentWritePage() {
 
   const { user } = useAuthState()
   const router = useRouter()
+  const signer = useCertificateSigner(user?.loginId)
 
   const [form, setForm] = useState<FormState>(emptyForm(initialType))
   const [approvers, setApprovers] = useState<Approver[]>([])
@@ -193,7 +196,7 @@ export default function DocumentWritePage() {
     return null
   }
 
-  const buildPayload = (submit: boolean): DocumentPayload => ({
+  const buildPayload = (): DocumentPayload => ({
     type: form.type,
     title: form.title.trim(),
     content: form.content.trim() || null,
@@ -205,9 +208,14 @@ export default function DocumentWritePage() {
     leaveEndDate: form.type === 'LEAVE' ? form.leaveEndDate || null : null,
     approverIds: approvers.map((a) => a.id),
     removedAttachmentIds: removedIds,
-    submit,
+    submit: false,
   })
 
+  /**
+   * 임시저장: 저장만.
+   * 상신: 인증서 확인 → 임시저장 → 인증서 암호 입력 → 기안자 전자서명 → 상신
+   *       (서명을 취소하면 문서는 임시저장 상태로 남는다)
+   */
   const save = async (submit: boolean) => {
     const problem = validate(submit)
     if (problem) {
@@ -217,7 +225,7 @@ export default function DocumentWritePage() {
     }
     if (submit) {
       const names = approvers.map((a) => `${a.name} ${a.positionLabel}`).join(' → ')
-      if (!window.confirm(`다음 순서로 상신합니다.\n\n${names}\n\n상신 후에는 내용을 수정할 수 없습니다. 계속할까요?`)) {
+      if (!window.confirm(`다음 순서로 상신합니다.\n\n${names}\n\n상신하면 기안자 전자서명이 붙고, 이후에는 내용을 수정할 수 없습니다. 계속할까요?`)) {
         return
       }
     }
@@ -225,12 +233,39 @@ export default function DocumentWritePage() {
     setError('')
     setSaving(submit ? 'submit' : 'draft')
     try {
-      const payload = buildPayload(submit)
+      const ready = submit ? await signer.prepare() : null
+      if (submit && !ready) return // 인증서가 없거나 이 브라우저에 개인키가 없음 → 안내 문구 표시
+
+      const payload = buildPayload()
       const doc = editId
         ? await documentApi.update(editId, payload, newFiles)
         : await documentApi.create(payload, newFiles)
       setDirty(false)
-      router.replace(`/documents/${doc.id}`)
+
+      if (!ready || !doc.signing) {
+        router.replace(`/documents/${doc.id}`)
+        return
+      }
+      const signing = doc.signing
+      signer.open(ready, {
+        title: '전자서명 후 상신',
+        description: `「${doc.title}」 문서를 상신합니다. 인증서 암호를 입력하면 문서 내용에 기안자 전자서명을 합니다.`,
+        confirmLabel: '서명 후 상신',
+        onSign: async (record, certPassword) => {
+          const sig = await signDocumentAction({
+            record,
+            certPassword,
+            documentId: doc.id,
+            signing,
+            action: 'SUBMIT',
+            comment: null,
+          })
+          await documentApi.submit(doc.id, sig)
+          router.replace(`/documents/${doc.id}`)
+        },
+        // 서명을 취소해도 내용은 임시저장되어 있음
+        onCancel: () => router.replace(`/documents/${doc.id}`),
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장에 실패했습니다.')
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -258,6 +293,8 @@ export default function DocumentWritePage() {
       </h1>
 
       {error && <div className="apv-alert apv-alert--error">{error}</div>}
+      {signer.problem}
+      {signer.dialog}
 
       {/* 1. 양식 선택 */}
       <section className="apv-card">
@@ -487,7 +524,7 @@ export default function DocumentWritePage() {
             {saving === 'draft' ? '저장 중...' : '임시저장'}
           </button>
           <button type="button" className="apv-btn apv-btn--primary" onClick={() => save(true)} disabled={!!saving}>
-            {saving === 'submit' ? '상신 중...' : '상신하기'}
+            {saving === 'submit' ? '저장 중...' : '전자서명 후 상신'}
           </button>
         </div>
       </div>
