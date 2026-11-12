@@ -3,8 +3,9 @@
  *
  * 키      : ECDSA P-256 (서버 PkiCrypto 와 같은 곡선)
  * 서명    : ECDSA / SHA-256, 결과는 r||s 64바이트 (서버는 SHA256withECDSAinP1363Format 으로 검증)
- * 키 보관 : 개인키(PKCS#8)를 "인증서 암호"에서 PBKDF2 로 만든 AES-256-GCM 키로 암호화해 IndexedDB 에 저장
- *           서명할 때만 잠깐 풀어서 "추출 불가" 키로 가져온 뒤 서명한다.
+ * 키 보관 : 개인키(PKCS#8)를 "인증서 암호"에서 PBKDF2 로 만든 AES-256-GCM 키로 암호화한다.
+ *           암호문은 이 브라우저(IndexedDB)와 서버 DB 에 함께 보관한다. 인증서 암호는 어디에도 저장·전송하지 않으므로
+ *           서버는 암호문을 풀 수 없다. 인증서 암호로 풀면 "추출 불가" 키로만 가져와서 서명한다.
  *
  * 서명 원문 형식은 서버(DocumentSignatureService.signedMessage)와 글자 하나까지 같아야 한다.
  */
@@ -16,7 +17,20 @@ const ECDSA_KEY = { name: 'ECDSA', namedCurve: 'P-256' } as const
 const ECDSA_SIGN = { name: 'ECDSA', hash: 'SHA-256' } as const
 const PBKDF2_ITERATIONS = 600_000 // OWASP 2023 권장값 (PBKDF2-HMAC-SHA256)
 
-export const MIN_CERT_PASSWORD = 8
+/**
+ * 인증서 암호 규칙. 암호화된 개인키가 서버 DB 에도 있으므로,
+ * DB 가 유출돼도 암호를 대입해서 풀기 어렵게 길이와 문자 종류를 강제한다.
+ */
+export const MIN_CERT_PASSWORD = 10
+
+/** 인증서 암호가 규칙에 맞지 않으면 이유를, 맞으면 null */
+export function certPasswordProblem(password: string, loginPassword?: string): string | null {
+  if (password.length < MIN_CERT_PASSWORD) return `인증서 암호는 ${MIN_CERT_PASSWORD}자 이상이어야 합니다.`
+  const kinds = [/[a-zA-Z]/, /\d/, /[^a-zA-Z0-9]/].filter((r) => r.test(password)).length
+  if (kinds < 2) return '인증서 암호는 영문·숫자·특수문자 중 2종류 이상을 섞어야 합니다.'
+  if (loginPassword && password === loginPassword) return '인증서 암호는 로그인 비밀번호와 다르게 정하세요.'
+  return null
+}
 
 /** 브라우저가 암호 기능을 쓸 수 있는지 (https 또는 localhost 에서만 가능) */
 export function isCryptoAvailable(): boolean {

@@ -96,6 +96,8 @@ export async function login(loginId: string, password: string): Promise<User> {
     body: JSON.stringify({ loginId, password }),
   });
   writeCachedUser(user);
+  // 새로 로그인하면 예전 인증서 인증 상태(로그아웃 없이 세션이 끝난 경우 등)를 지운다
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("approval-logout"));
   notifyAuthChanged();
   return user;
 }
@@ -114,6 +116,8 @@ export async function logout(): Promise<void> {
     // 서버가 꺼져 있어도 화면에서는 로그아웃 처리
   } finally {
     writeCachedUser(null);
+    // 인증서 인증(잠금 해제된 서명 키) 상태도 함께 지운다 → features/pki/certificate.ts
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("approval-logout"));
     notifyAuthChanged();
   }
 }

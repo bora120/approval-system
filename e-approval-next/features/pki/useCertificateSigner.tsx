@@ -2,31 +2,38 @@
 
 import { useCallback, useState } from 'react'
 import Link from 'next/link'
-import CertPasswordDialog from './components/CertPasswordDialog'
-import { loadSignerState, SIGNER_STATE_MESSAGE, type SignerState } from './certificate'
+import CertPasswordDialog, { type SignAuth } from './components/CertPasswordDialog'
+import { loadSignerState, signingSessionInfo, SIGNER_STATE_MESSAGE, type SignerState } from './certificate'
 import { isCryptoAvailable } from './crypto'
 import type { LocalKeyRecord } from './types'
 
 type ReadySigner = Extract<SignerState, { kind: 'ready' }>
 
+export type { SignAuth }
+
 interface SignRequest {
   title: string
   description: string
   confirmLabel: string
-  /** 인증서 암호로 서명하고 서버에 보내는 작업. 실패하면 throw → 창에 에러를 보여주고 다시 입력받는다 */
-  onSign: (record: LocalKeyRecord, certPassword: string) => Promise<void>
+  /**
+   * 서명하고 서버에 보내는 작업. auth 는 signDocumentAction 에 그대로 넘기면 된다.
+   * 실패하면 throw → 창에 에러를 보여주고 다시 시도받는다
+   */
+  onSign: (record: LocalKeyRecord, auth: SignAuth) => Promise<void>
   /** 사용자가 창을 닫았을 때 */
   onCancel?: () => void
 }
 
 /**
  * 인증서 전자서명 흐름 (상신·승인·반려 공통)
- *   1) prepare(): 이 브라우저에서 서명할 수 있는지 확인 (인증서 + 개인키). 안 되면 안내 문구를 띄우고 null
- *   2) open(ready, 요청): 인증서 암호 입력 창을 띄움 → onSign 실행
+ *   1) prepare(): 이 브라우저에서 서명할 수 있는지 확인 (인증서 + 개인키, 필요하면 서버 백업에서 자동 복원)
+ *   2) open(ready, 요청): 서명 창을 띄움 → 인증 전이면 암호 입력, 인증 후면 확인만 → onSign 실행
  * 화면에는 {dialog} 와 {problem} 을 그대로 넣으면 된다.
  */
 export function useCertificateSigner(loginId: string | undefined) {
-  const [request, setRequest] = useState<(SignRequest & { ready: ReadySigner }) | null>(null)
+  const [request, setRequest] = useState<(SignRequest & { ready: ReadySigner; sessionUntil: number | null }) | null>(
+    null,
+  )
   const [problemText, setProblemText] = useState('')
 
   const prepare = useCallback(async (): Promise<ReadySigner | null> => {
@@ -47,7 +54,10 @@ export function useCertificateSigner(loginId: string | undefined) {
     return state
   }, [loginId])
 
-  const open = useCallback((ready: ReadySigner, req: SignRequest) => setRequest({ ...req, ready }), [])
+  const open = useCallback(async (ready: ReadySigner, req: SignRequest) => {
+    const session = await signingSessionInfo(ready.record.loginId, ready.record.serialNumber)
+    setRequest({ ...req, ready, sessionUntil: session ? session.idleExpiresAt : null })
+  }, [])
 
   const dialog = request ? (
     <CertPasswordDialog
@@ -55,8 +65,9 @@ export function useCertificateSigner(loginId: string | undefined) {
       description={request.description}
       cert={request.ready.cert}
       confirmLabel={request.confirmLabel}
-      onSubmit={async (certPassword) => {
-        await request.onSign(request.ready.record, certPassword)
+      sessionUntil={request.sessionUntil}
+      onSubmit={async (auth) => {
+        await request.onSign(request.ready.record, auth)
         setRequest(null)
       }}
       onClose={() => {

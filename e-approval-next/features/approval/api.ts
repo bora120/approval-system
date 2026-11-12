@@ -76,6 +76,9 @@ export const documentApi = {
 
   remove: (id: number) => api<void>(`/api/documents/${id}`, { method: 'DELETE' }),
 
+  /** 전자서명 문서 원본(.json): 문서 + 서명 사슬 + 서명자 인증서 + 루트 CA. 시스템 밖에서도 재검증 가능 */
+  exportUrl: (id: number) => `/api/documents/${id}/export`,
+
   attachmentUrl: (docId: number, attachmentId: number) =>
     `/api/documents/${docId}/attachments/${attachmentId}`,
 }

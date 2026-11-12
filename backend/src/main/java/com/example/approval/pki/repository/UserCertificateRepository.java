@@ -15,4 +15,8 @@ public interface UserCertificateRepository extends JpaRepository<UserCertificate
     List<UserCertificate> findByUserAndStatus(User user, CertificateStatus status);
 
     Optional<UserCertificate> findFirstByUserAndStatusOrderByIdDesc(User user, CertificateStatus status);
+
+    /** 로그인 ID로 조회하는 공개 인증서. 개인키 백업 컬럼은 응답 DTO에 포함하지 않는다. */
+    Optional<UserCertificate> findFirstByUser_LoginIdAndStatusOrderByIdDesc(
+            String loginId, CertificateStatus status);
 }

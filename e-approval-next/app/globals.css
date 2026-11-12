@@ -65,6 +65,9 @@ h3 { font-size: var(--fs-base); font-weight: 600; }
 .header nav a { color: var(--c-sub); text-decoration: none; font-size: var(--fs-sm); padding: 4px 0; }
 .header nav a:hover { color: var(--c-black); }
 .header-user-label { color: var(--c-faint); font-size: var(--fs-sm); }
+.header nav button { background: none; border: 0; padding: 4px 0; color: var(--c-sub); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.header nav button:hover { color: var(--c-black); }
+.header nav a.header-cert.is-unlocked { color: var(--c-black); font-weight: 600; }
 
 /* MAIN */
 .main { width: 100%; max-width: 1080px; margin: 0 auto; padding: 48px 32px 72px; }

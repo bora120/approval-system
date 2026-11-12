@@ -257,9 +257,33 @@ a.apv-file-name:hover { text-decoration: underline; }
   .apv-line-node + .apv-line-node::before { display: none; }
 }
 
-/* ----- 인쇄 ----- */
+/* ----- 문서 보기: 한 줄 요약 + 도구 모음 ----- */
+.apv-summary {
+  display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap;
+  padding: 10px 14px; margin-bottom: 12px; border: 1px solid var(--c-line); border-radius: var(--radius);
+  font-size: var(--fs-sm); background: var(--c-soft);
+}
+.apv-summary.is-fail { border-color: var(--c-black); background: var(--c-white); font-weight: 600; }
+.apv-summary-item { display: inline-flex; align-items: center; gap: 6px; }
+.apv-toolbar-divider { width: 1px; align-self: stretch; background: var(--c-line); margin: 0 2px; }
+.apv-stamp-signed { display: block; font-size: 10px; }
+.apv-stamp-signed--fail { font-weight: 700; text-decoration: underline; }
+.apv-print-footer { display: none; }
+
+/* ----- 인쇄 · PDF 저장 (A4 한 장 기준) ----- */
+@page { size: A4; margin: 14mm 12mm 16mm; }
 @media print {
-  .header, .footer, .apv-no-print { display: none !important; }
+  .header, .footer, .apv-no-print, .pki-modal { display: none !important; }
+  html, body { background: #fff !important; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .apv-page { padding: 0; max-width: none; }
   .apv-paper { border: none; padding: 0; }
+  .apv-paper-header, .apv-stamp-table, .apv-info-table tr, .apv-avoid-break, .pki-sig-table tr { break-inside: avoid; }
+  .apv-paper-body { min-height: 0; font-size: 11pt; }
+  .apv-paper-section { margin-top: 14px; }
+  .apv-file-name { color: #000; text-decoration: none; }
+  .apv-print-footer {
+    display: block; margin-top: 18px; padding-top: 8px; border-top: 1px solid #000;
+    font-size: 8pt; line-height: 1.5; color: #333;
+  }
 }

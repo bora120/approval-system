@@ -4,12 +4,22 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useAuthState } from '@/lib/auth'
 import { pkiApi } from '../api'
-import { issueCertificate, loadSignerState, SIGNER_STATE_MESSAGE, type SignerState } from '../certificate'
-import { isCryptoAvailable, MIN_CERT_PASSWORD } from '../crypto'
-import type { CertificateInfo } from '../types'
+import {
+  backupLocalPrivateKey,
+  issueCertificate,
+  loadSignerState,
+  lockSigningSession,
+  restorePrivateKeyBackup,
+  SIGNER_STATE_MESSAGE,
+  startSigningSession,
+  type SignerState,
+} from '../certificate'
+import { certPasswordProblem, isCryptoAvailable, MIN_CERT_PASSWORD } from '../crypto'
+import type { CertificateInfo, LocalKeyRecord } from '../types'
+import { formatUntil, useSigningSession } from '../useSigningSession'
 import { formatCertDate, groupHex } from '../utils'
 
-/** 인증서 관리 (/certificate) — 전자서명 인증서 발급·확인 */
+/** 인증서 관리 (/certificate) — 전자서명 인증서 발급·확인 · 개인키 백업/복원 · 인증서 인증(한 번 인증) */
 export default function CertificatePage() {
   const { user } = useAuthState()
   const [state, setState] = useState<SignerState | null>(null)
@@ -27,6 +37,7 @@ export default function CertificatePage() {
       setState(s)
       setShowForm(s.kind === 'no-cert')
       setError('')
+      if (s.kind === 'ready' && s.restored) setNotice('서버에 보관된 암호화 개인키를 이 브라우저로 복원했습니다.')
     } catch (e) {
       setError(e instanceof Error ? e.message : '인증서 정보를 불러오지 못했습니다.')
     }
@@ -51,6 +62,20 @@ export default function CertificatePage() {
 
   const cert = state.kind === 'no-cert' ? null : state.cert
 
+  /** 수동 백업/복원 (자동 처리가 실패했을 때 쓰는 버튼) */
+  const runKeyAction = async (action: 'backup' | 'restore') => {
+    setError('')
+    setNotice('')
+    try {
+      if (action === 'backup') await backupLocalPrivateKey(user.loginId)
+      else await restorePrivateKeyBackup(user.loginId)
+      setNotice(action === 'backup' ? '암호화된 개인키를 서버에 백업했습니다.' : '서버 백업에서 개인키를 복원했습니다.')
+      await load(user.loginId)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '처리하지 못했습니다.')
+    }
+  }
+
   return (
     <div className="apv-page">
       <nav className="apv-breadcrumb">
@@ -71,7 +96,12 @@ export default function CertificatePage() {
               내 인증서{' '}
               <span className={`pki-badge ${state.kind === 'ready' ? 'pki-badge--ok' : ''}`}>
                 {state.kind === 'ready' ? '이 브라우저에서 사용 가능' : '이 브라우저에 개인키 없음'}
-              </span>
+              </span>{' '}
+              {state.kind === 'ready' && (
+                <span className={`pki-badge ${state.backedUp ? 'pki-badge--ok' : ''}`}>
+                  {state.backedUp ? '서버 백업됨 (다른 PC 자동 복원)' : '서버 백업 없음'}
+                </span>
+              )}
             </h2>
             {!showForm && (
               <button className="apv-btn apv-btn--sm" onClick={() => setShowForm(true)}>
@@ -90,10 +120,22 @@ export default function CertificatePage() {
             <button className="apv-btn apv-btn--sm apv-btn--ghost" onClick={() => setShowPem((v) => !v)}>
               {showPem ? 'PEM 닫기' : 'PEM 보기'}
             </button>
+            {state.kind === 'ready' && !state.backedUp && (
+              <button className="apv-btn apv-btn--sm" onClick={() => void runKeyAction('backup')}>
+                개인키 서버 백업
+              </button>
+            )}
+            {state.kind !== 'ready' && (
+              <button className="apv-btn apv-btn--sm" onClick={() => void runKeyAction('restore')}>
+                서버 백업에서 복원
+              </button>
+            )}
           </div>
           {showPem && <pre className="pki-pre">{cert.pem}</pre>}
         </section>
       )}
+
+      {state.kind === 'ready' && <SessionCard record={state.record} onError={setError} />}
 
       {showForm && (
         <IssueForm
@@ -112,7 +154,8 @@ export default function CertificatePage() {
         <ol>
           <li>
             <strong>키 생성</strong> — 이 브라우저가 ECDSA P-256 키쌍을 만듭니다. 개인키는 <em>인증서 암호</em>로
-            암호화(PBKDF2 + AES-256-GCM)되어 이 브라우저에만 저장되고, 서버로는 절대 보내지 않습니다.
+            암호화(PBKDF2 60만 회 + AES-256-GCM)한 <em>암호문</em>으로만 이 브라우저와 서버 DB 에 보관합니다. 인증서
+            암호는 어디에도 저장·전송하지 않으므로 서버도 개인키를 풀 수 없습니다.
           </li>
           <li>
             <strong>발급 요청</strong> — 공개키와, 새 개인키로 서명한 발급 요청문(개인키 소유 증명)을 보냅니다. 서버는
@@ -123,8 +166,16 @@ export default function CertificatePage() {
             CA 개인키로 서명해 줍니다.
           </li>
           <li>
-            <strong>결재 서명</strong> — 승인·반려할 때 인증서 암호로 개인키를 잠깐 풀어 문서 해시·결재 내용에
-            서명합니다. 서버와 다른 사람은 인증서(공개키)로 검증만 할 수 있습니다.
+            <strong>인증서 인증</strong> — 인증서 암호를 한 번 입력하면 로그아웃할 때까지 암호 없이 서명합니다.
+            30분 동안 쓰지 않으면 자동으로 잠기고, 서명할 때마다 확인 창은 항상 뜹니다.
+          </li>
+          <li>
+            <strong>결재 서명</strong> — 상신·승인·반려할 때 문서 해시·결재 내용·앞 서명 해시에 서명합니다. 인증서는
+            공개 문서라서 누구나 내려받아 서명을 검증할 수 있습니다.
+          </li>
+          <li>
+            <strong>다른 PC</strong> — 새 브라우저에서 결재하면 서버의 암호문을 자동으로 내려받고, 인증서 암호로
+            풀어서 씁니다.
           </li>
         </ol>
       </section>
@@ -191,9 +242,9 @@ function IssueForm({
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!loginPassword) return setError('본인 확인을 위해 로그인 비밀번호를 입력하세요.')
-    if (certPassword.length < MIN_CERT_PASSWORD) return setError(`인증서 암호는 ${MIN_CERT_PASSWORD}자 이상이어야 합니다.`)
+    const problem = certPasswordProblem(certPassword, loginPassword)
+    if (problem) return setError(problem)
     if (certPassword !== confirm) return setError('인증서 암호 확인이 일치하지 않습니다.')
-    if (certPassword === loginPassword) return setError('인증서 암호는 로그인 비밀번호와 다르게 정하세요.')
     if (reissue && !window.confirm('재발급하면 지금 인증서는 폐기됩니다. (이미 한 결재 서명은 계속 유효합니다) 진행할까요?')) {
       return
     }
@@ -227,7 +278,7 @@ function IssueForm({
           />
         </label>
         <label className="pki-field">
-          인증서 암호 ({MIN_CERT_PASSWORD}자 이상, 결재할 때마다 입력)
+          인증서 암호 ({MIN_CERT_PASSWORD}자 이상, 영문·숫자·특수문자 중 2종류 이상)
           <input
             type="password"
             autoComplete="new-password"
@@ -247,7 +298,8 @@ function IssueForm({
           />
         </label>
         <p className="pki-muted">
-          인증서 암호는 서버에 저장되지 않아서, 잊어버리면 찾을 수 없습니다. 그때는 재발급하세요.
+          인증서 암호는 서버에 저장되지 않아서, 잊어버리면 찾을 수 없습니다. 그때는 재발급하세요. (이미 한
+          결재 서명은 계속 유효합니다)
         </p>
         {error && <div className="pki-error">{error}</div>}
         <div className="pki-actions">
@@ -261,6 +313,75 @@ function IssueForm({
           </button>
         </div>
       </form>
+    </section>
+  )
+}
+
+/** 인증서 인증 상태 + 인증/잠금 버튼 */
+function SessionCard({ record, onError }: { record: LocalKeyRecord; onError: (m: string) => void }) {
+  const { session, refresh } = useSigningSession(record.loginId, record.serialNumber)
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [localError, setLocalError] = useState('')
+
+  const unlock = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!password) return setLocalError('인증서 암호를 입력하세요.')
+    setBusy(true)
+    setLocalError('')
+    try {
+      await startSigningSession(record, password)
+      setPassword('')
+      await refresh()
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : '인증에 실패했습니다.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const lock = async () => {
+    try {
+      await lockSigningSession(record.loginId)
+      await refresh()
+    } catch (err) {
+      onError(err instanceof Error ? err.message : '잠그지 못했습니다.')
+    }
+  }
+
+  return (
+    <section className="apv-card">
+      <h2 className="apv-card-title">
+        인증서 인증{' '}
+        <span className={`pki-badge ${session ? 'pki-badge--ok' : ''}`}>{session ? '🔓 인증됨' : '🔒 잠김'}</span>
+      </h2>
+      {session ? (
+        <div className="pki-session">
+          <span className="pki-muted">
+            {formatUntil(session.idleExpiresAt)}까지 암호 없이 서명합니다. (서명할 때마다 30분 연장, 최대{' '}
+            {formatUntil(session.absoluteExpiresAt)})
+          </span>
+          <button className="apv-btn apv-btn--sm" onClick={() => void lock()}>
+            지금 잠금
+          </button>
+        </div>
+      ) : (
+        <form className="pki-session" onSubmit={unlock}>
+          <input
+            type="password"
+            autoComplete="off"
+            placeholder="인증서 암호"
+            value={password}
+            disabled={busy}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button type="submit" className="apv-btn apv-btn--sm apv-btn--primary" disabled={busy}>
+            {busy ? '확인 중...' : '인증'}
+          </button>
+          <span className="pki-muted">한 번 인증하면 로그아웃 전까지 암호 없이 결재합니다.</span>
+        </form>
+      )}
+      {localError && <div className="pki-error">{localError}</div>}
     </section>
   )
 }

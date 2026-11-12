@@ -247,20 +247,21 @@ export default function DocumentWritePage() {
         return
       }
       const signing = doc.signing
-      signer.open(ready, {
+      await signer.open(ready, {
         title: '전자서명 후 상신',
-        description: `「${doc.title}」 문서를 상신합니다. 인증서 암호를 입력하면 문서 내용에 기안자 전자서명을 합니다.`,
+        description: `「${doc.title}」 문서를 상신합니다. 문서 내용에 기안자 전자서명을 합니다.`,
         confirmLabel: '서명 후 상신',
-        onSign: async (record, certPassword) => {
+        onSign: async (record, auth) => {
           const sig = await signDocumentAction({
             record,
-            certPassword,
+            ...auth,
             documentId: doc.id,
             signing,
             action: 'SUBMIT',
             comment: null,
           })
           await documentApi.submit(doc.id, sig)
+          window.dispatchEvent(new Event('approval-inbox-updated'))
           router.replace(`/documents/${doc.id}`)
         },
         // 서명을 취소해도 내용은 임시저장되어 있음

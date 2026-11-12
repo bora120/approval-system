@@ -17,7 +17,8 @@
 ```mermaid
 flowchart LR
   subgraph Browser["브라우저 (Next.js)"]
-    K["개인키<br/>IndexedDB 저장<br/>인증서 암호로 암호화"]
+    K["개인키 암호문<br/>IndexedDB<br/>인증서 암호로 암호화"]
+    U["인증 세션<br/>추출 불가 서명 키<br/>30분 미사용 잠금"]
     S["서명 모듈<br/>Web Crypto ECDSA"]
   end
   subgraph Server["백엔드 (Spring Boot)"]
@@ -28,7 +29,9 @@ flowchart LR
   end
   DB[("Supabase PostgreSQL<br/>app 스키마")]
 
-  K --> S
+  K -- "인증서 암호로 1회 해제" --> U
+  U --> S
+  K <-->|"같은 암호문 보관·복원"| CS
   S -- "공개키 + 소유 증명" --> CS
   CS --> CA
   S -- "서명값" --> DS
@@ -38,8 +41,10 @@ flowchart LR
   AJ --> DS
 ```
 
-- **개인키는 서버로 가지 않는다.** 브라우저에서 만들고, 인증서 암호(PBKDF2 60만 회 + AES-256-GCM)로 암호화해서 IndexedDB에 저장한다.
-- 서버는 공개키(인증서)로 **검증만** 한다. 그래서 서버 관리자도 결재자 서명을 만들어 낼 수 없다.
+- **인증서는 공개, 개인키는 암호문으로만 보관한다.** 인증서(공개키)는 공개 문서라 DB 에 그대로 두고 누구나 조회한다.
+  개인키는 브라우저에서 만들고 인증서 암호(PBKDF2 60만 회 + AES-256-GCM)로 암호화한 **암호문**을 IndexedDB 와 DB 에 함께 보관한다.
+- **평문 개인키와 인증서 암호는 서버로 가지 않는다.** 그래서 서버·DB 관리자는 암호문을 갖고 있어도 결재자 서명을 만들어 낼 수 없다.
+- 서버는 공개키(인증서)로 **검증만** 한다.
 
 ## 3. 데이터 모델 (ERD)
 
@@ -72,6 +77,11 @@ erDiagram
     timestamp not_after
     varchar status "VALID / REVOKED"
     timestamp revoked_at
+    varchar encrypted_private_key "AES-GCM(PKCS8) 암호문"
+    varchar private_key_public_key "암호문 짝 공개키"
+    varchar private_key_salt
+    varchar private_key_iv
+    int private_key_iterations "PBKDF2 60만 회 이상"
   }
   approval_documents {
     bigint id PK
@@ -112,6 +122,7 @@ erDiagram
 | `approval_documents` | `integrity`, `integrity_detail`, `integrity_checked_at` | 서명 사슬 자동 검증 결과 |
 | `approval_lines` | `certificate_id`, `signed_message`, `signature_value` | 결재자 서명 |
 | `user_certificates` | (테이블 신설) | 사용자 인증서와 폐기 상태 |
+| `user_certificates` | `encrypted_private_key`, `private_key_public_key`, `private_key_salt`, `private_key_iv`, `private_key_iterations` | 인증서 암호로 암호화한 개인키 (다른 PC 복원용). 마이그레이션: `docs/approval-pki-backup-migration.sql` |
 | `pki_ca` | (테이블 신설) | 루트 CA 인증서와 암호화된 CA 개인키 |
 
 ## 4. 인증기관(CA)과 인증서
@@ -141,14 +152,51 @@ sequenceDiagram
   B->>S: POST /api/pki/challenge
   S-->>B: 1회용 challenge (5분)
   B->>B: 새 개인키로 "아이디+challenge+공개키"에 서명 (소유 증명)
-  B->>S: POST /api/pki/certificates (공개키, 소유증명, 로그인 비밀번호)
-  S->>S: 본인 확인 (비밀번호) · challenge 1회 사용 · 소유 증명 서명 검증
+  B->>S: POST /api/pki/certificates (공개키, 소유증명, 로그인 비밀번호, 개인키 암호문)
+  S->>S: 본인 확인 (비밀번호) · challenge 1회 사용 · 소유 증명 서명 검증 · 암호문 형식/반복 횟수 검사
   S->>S: 기존 인증서 폐기 (REVOKED)
   S->>CA: 인증서 발급 요청
   CA-->>S: X.509 v3 인증서 (CA 개인키로 서명)
+  S->>S: 인증서 + 개인키 암호문 저장
   S-->>B: 인증서
-  B->>B: 암호화된 개인키 + 일련번호를 IndexedDB 에 저장
+  B->>B: 같은 암호문 + 일련번호를 IndexedDB 에 저장
 ```
+
+### 개인키 보관 · 복원
+
+| 상황 | 동작 |
+|---|---|
+| 발급 | 암호문을 브라우저와 DB 에 함께 저장 |
+| 새 PC · 새 브라우저 | 결재하려 할 때 `GET /api/pki/me/private-key-backup` 으로 **본인 암호문만** 받아 IndexedDB 에 저장 → 인증서 암호로 풀어서 서명 |
+| 예전 인증서(서버 백업 없음) | 키가 있는 브라우저에서 접속하면 `PUT /api/pki/me/private-key-backup` 으로 자동 백업. 서버는 일련번호와 **공개키가 현재 인증서의 공개키와 같은지** 확인해서 다른 키로 덮어쓰기를 막는다 |
+| 인증서 암호 규칙 | 10자 이상, 영문·숫자·특수문자 중 2종류 이상, 로그인 비밀번호와 달라야 함. DB 가 유출돼도 암호 대입(오프라인 공격)을 어렵게 하기 위함 |
+
+### 한 번 인증 (인증서 인증 세션)
+
+교수님 요구: "서명을 한 번 하고 → 추가 인증 관리를 하고 → 다음 결재 때는 인증된 상태로 그냥 사용".
+
+| 항목 | 값 |
+|---|---|
+| 인증 방법 | 인증서 관리의 "인증" 버튼, 또는 서명 창에서 "로그아웃 전까지 인증 유지" |
+| 보관 | 인증서 암호로 푼 개인키를 **추출 불가(non-extractable) CryptoKey** 로 IndexedDB `sessions` 저장소에 보관 (새로고침해도 유지). 키 값 자체는 자바스크립트로도 꺼낼 수 없고, 이 브라우저 안에서 서명에만 쓸 수 있다 |
+| 만료 | 30분 동안 서명하지 않으면 잠금(서명할 때마다 30분 연장) · 인증 후 8시간이면 무조건 잠금 · 로그아웃 · 다른 아이디 로그인 · 재발급 · "지금 잠금" 버튼 |
+| 서명 | 인증된 동안에는 암호 입력 없이 **확인 창**만 띄운다 (무엇에 서명하는지 보여주고 버튼을 한 번 더 눌러야 서명 → 실수로 한 번에 결재되지 않음) |
+| 표시 | 헤더 🔓 인증서 / 🔒 인증서, 서명 창에 "몇 시까지 인증됨" |
+
+### 서명 원본 내보내기 (`GET /api/documents/{id}/export`)
+
+`문서번호.signed.json` (형식 `E-APPROVAL-SIGNED-DOCUMENT v1`) — 시스템 밖에서 이 파일만으로 재검증할 수 있게 다음을 담는다.
+
+| 필드 | 내용 |
+|---|---|
+| `document` | 문서 필드 · 결재선 · 첨부(이름·크기·SHA-256) |
+| `canonicalContent`, `documentSha256` | 서명 대상 정규화 내용과 그 해시 |
+| `signatures[]` | 단계별 서명 원문 · 서명값(P1363 r‖s) · 서명 해시 · 서명자 인증서 PEM |
+| `caCertificatePem` | 신뢰 기준 루트 CA |
+| `verification`, `howToVerify` | 내보낼 때의 서버 검증 결과와 검증 방법 |
+
+검증 순서: ① 인증서를 루트 CA 로 검증 ② `SHA-256(canonicalContent)` = `documentSha256` = 각 서명 원문의 `document-sha256` ③ 인증서 공개키로 서명값 검증 ④ 각 원문의 `previous-signature-sha256` = 바로 앞 `signatureSha256`.
+개인키 암호문은 들어 있지 않다.
 
 ## 5. 결재 = 서명 사슬
 
@@ -221,8 +269,8 @@ sequenceDiagram
   W->>B: 문서 작성 → "전자서명 후 상신"
   B->>S: 임시저장 (POST /api/documents)
   S-->>B: signing { step:0, 문서 내용, previous:none }
-  W->>B: 인증서 암호 입력
-  B->>B: 개인키 복호화 → 서명 원문(SUBMIT)에 ECDSA 서명
+  W->>B: 인증서 암호 입력 (인증된 상태면 확인만)
+  B->>B: 개인키 복호화(또는 인증 세션 키) → 서명 원문(SUBMIT)에 ECDSA 서명
   B->>S: POST /api/documents/{id}/submit (서명값, 시각, 인증서 번호)
   S->>V: 기안자 서명 검증 (인증서·CA·유효기간·폐기·서명값)
   V-->>S: OK
@@ -232,7 +280,7 @@ sequenceDiagram
   B->>S: GET /api/documents/{id}
   S->>V: 서명 사슬 자동 검증 → integrity 갱신
   S-->>B: signing { step:1, 문서 내용, previous:H(기안 서명) }
-  A->>B: 승인/반려 + 인증서 암호
+  A->>B: 승인/반려 + 인증서 암호 (인증된 상태면 확인만)
   B->>B: 서명 원문(APPROVE/REJECT)에 ECDSA 서명
   B->>S: POST /api/documents/{id}/approve
   S->>V: ① 지금까지의 서명 사슬 전체 재검증 (깨져 있으면 409로 결재 차단)
@@ -295,14 +343,20 @@ sequenceDiagram
 | 폐기·만료 인증서로 결재 | 결재 시점에 거부 |
 | 과거 서명을 재전송 | 서명 시각 ±5분 검사, 사슬의 previous 해시가 달라서 실패 |
 | 인증서 발급 요청 재전송 | challenge 1회 사용 + 5분 만료 |
-| 서버 관리자가 결재 위조 | 결재자 개인키가 서버에 없으므로 서명 생성 불가 |
+| 서버 관리자가 결재 위조 | 서버에는 개인키 **암호문**만 있고 인증서 암호는 없으므로 서명 생성 불가 |
+| DB 유출 후 개인키 암호문 대입 공격 | PBKDF2 60만 회 + 인증서 암호 규칙(10자·2종류). 서버는 60만 회 미만 암호문은 받지 않음 |
+| 남의 개인키 암호문 조회 | `/api/pki/me/private-key-backup` 은 로그인한 본인 것만. 공개 인증서 API·내보내기 파일에는 암호문을 넣지 않음 |
+| 다른 키로 백업 덮어쓰기 | 백업 공개키가 현재 인증서 공개키와 같아야 저장 |
+| 인증된 상태에서 남이 내 PC 로 결재 | 30분 미사용 자동 잠금 · 8시간 상한 · 로그아웃 시 삭제 · 서명마다 확인 창. (PC 잠금은 사용자 책임) |
 | DB 유출 후 CA 위조 | CA 개인키는 `CA_KEY_PASSWORD`로 암호화 저장 |
 
 ## 8. API
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/pki/me` | 내 유효 인증서 |
+| GET | `/api/pki/me` | 내 유효 인증서 + 서버 백업 여부 |
+| GET · PUT | `/api/pki/me/private-key-backup` | 내 개인키 암호문 내려받기 / 백업 |
+| GET | `/api/pki/users/{loginId}/certificate` | 다른 사람의 공개 인증서 |
 | POST | `/api/pki/challenge` | 발급용 1회용 난수 |
 | POST | `/api/pki/certificates` | 인증서 발급 (공개키, 소유 증명, 로그인 비밀번호) |
 | GET | `/api/pki/certificates/{serial}` | 인증서 파일(.crt) |
@@ -311,6 +365,7 @@ sequenceDiagram
 | POST | `/api/documents/{id}/submit` | **기안자 전자서명 후 상신** |
 | POST | `/api/documents/{id}/approve` · `/reject` | **결재자 전자서명 후 승인/반려** |
 | GET | `/api/documents/{id}/signatures` | 서명 사슬 검증 결과 (결과는 문서에 기록) |
+| GET | `/api/documents/{id}/export` | 서명 원본 `.signed.json` |
 
 ## 9. 한계와 향후 과제
 
@@ -318,6 +373,8 @@ sequenceDiagram
 |---|---|
 | 서명 시각은 브라우저 시각 (±5분만 확인) | 시점확인(TSA, RFC 3161) 도입 |
 | 폐기 정보를 외부에 공개하지 않음 | CRL 또는 OCSP 응답 서버 |
-| 개인키가 소프트웨어(브라우저 저장소)에 있음 | 보안토큰·스마트폰 보안칩·HSM |
+| 개인키가 소프트웨어(브라우저 저장소)에 있고, 암호문이 서버에도 있음 | 보안토큰·스마트폰 보안칩·HSM, 서버 보관 시 추가 인증(OTP) 후 내려받기 |
+| 인증 세션 동안 PC 를 비우면 남이 결재 가능 | 화면 잠금 감지, 고액 결재는 매번 암호 요구 |
+| 인쇄·PDF 는 사본 (서명이 PDF 안에 들어가지 않음) | PAdES 서명 PDF 생성 |
 | CA 키 비밀번호가 서버 환경변수에 있음 | CA 키를 HSM/KMS 에 보관, 루트–중간 CA 2단 구조 |
 | 서명 형식이 자체 텍스트 형식 | CMS/PKCS#7, XAdES/PAdES 등 표준 서명 형식 |

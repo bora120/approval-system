@@ -7,6 +7,7 @@ import com.example.approval.document.dto.DocumentDetailResponse;
 import com.example.approval.document.dto.DocumentRequest;
 import com.example.approval.document.dto.DocumentSummaryResponse;
 import com.example.approval.document.dto.SignatureRequest;
+import com.example.approval.document.dto.SignedDocumentPackage;
 import com.example.approval.document.dto.SignatureVerificationResponse;
 import com.example.approval.document.repository.ApprovalDocumentRepository;
 import com.example.approval.document.repository.ApprovalLineRepository;
@@ -242,6 +243,18 @@ public class DocumentService {
         ApprovalDocument doc = findDocument(id);
         checkReadable(doc, user);
         return applyVerification(doc);
+    }
+
+    /** 전자서명 문서 원본 내보내기 (열람 권한이 있는 사람만, 상신된 문서만) */
+    @Transactional(readOnly = true)
+    public SignedDocumentPackage exportSigned(String loginId, Long id) {
+        User user = currentUser(loginId);
+        ApprovalDocument doc = findDocument(id);
+        checkReadable(doc, user);
+        if (doc.isDraft()) {
+            throw new ApiException(HttpStatus.CONFLICT, "상신 전 문서는 서명 원본이 없습니다.");
+        }
+        return signatureService.exportPackage(doc, user);
     }
 
     /** 서명 사슬을 검증하고 결과를 문서의 무결성 필드에 기록 */

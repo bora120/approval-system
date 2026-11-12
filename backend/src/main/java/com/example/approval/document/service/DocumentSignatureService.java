@@ -10,6 +10,7 @@ import com.example.approval.document.dto.SignatureVerificationResponse;
 import com.example.approval.document.dto.SignatureVerificationResponse.CertificateSummary;
 import com.example.approval.document.dto.SignatureVerificationResponse.Check;
 import com.example.approval.document.dto.SignatureVerificationResponse.SignatureResult;
+import com.example.approval.document.dto.SignedDocumentPackage;
 import com.example.approval.document.dto.SigningContext;
 import com.example.approval.domain.User;
 import com.example.approval.exception.ApiException;
@@ -435,6 +436,61 @@ public class DocumentSignatureService {
                 link.action().name(), link.action().getLabel(), true, valid, summary, checks,
                 certificateSummary(cert, x509), link.serverTime(), link.message(), link.signature(),
                 digest(link.message(), link.signature()));
+    }
+
+    // ================================================================ 서명 원본 내보내기
+
+    /**
+     * 전자서명 문서 원본 패키지 (문서 + 서명 사슬 + 인증서 + 루트 CA).
+     * 시스템 밖에서도 이 파일만으로 서명을 다시 검증할 수 있도록 검증에 필요한 값을 모두 담는다.
+     */
+    public SignedDocumentPackage exportPackage(ApprovalDocument doc, User exporter) {
+        SignatureVerificationResponse verification = verifyAll(doc);
+
+        List<SignedDocumentPackage.Signature> signatures = new ArrayList<>();
+        for (Link link : chain(doc)) {
+            if (!link.signed()) continue;
+            signatures.add(new SignedDocumentPackage.Signature(
+                    link.step(), link.step() == 0 ? "기안" : "결재", link.signer().getLoginId(), link.signer().getName(),
+                    link.action().name(), link.serverTime(), link.message(), link.signature(),
+                    digest(link.message(), link.signature()),
+                    link.certificate().getSerialNumber(), link.certificate().getCertificatePem()));
+        }
+
+        User w = doc.getWriter();
+        SignedDocumentPackage.Document document = new SignedDocumentPackage.Document(
+                doc.getId(), doc.getDocNumber(), doc.getType().name(), doc.getType().getLabel(),
+                doc.getStatus().name(), doc.getStatus().getLabel(), doc.getTitle(), doc.getContent(),
+                w.getLoginId(), w.getName(), w.getDepartment(), positionLabel(w),
+                doc.getAmount(), doc.getExpenseDate(),
+                doc.getExpenseCategory() == null ? null : doc.getExpenseCategory().name(),
+                doc.getLeaveType() == null ? null : doc.getLeaveType().name(),
+                doc.getLeaveStartDate(), doc.getLeaveEndDate(), doc.getSubmittedAt(), doc.getCompletedAt(),
+                doc.getLines().stream().map(l -> new SignedDocumentPackage.Line(l.getStepOrder(),
+                        l.getApprover().getLoginId(), l.getApprover().getName(), positionLabel(l.getApprover()),
+                        l.getStatus().name(), l.getComment(), l.getActedAt())).toList(),
+                doc.getAttachments().stream().map(a -> new SignedDocumentPackage.Attachment(
+                        a.getOriginalName(), a.getSize(), a.getSha256())).toList());
+
+        String caPem;
+        try {
+            caPem = PkiCrypto.toPem(caService.certificate());
+        } catch (ApiException e) {
+            caPem = null;
+        }
+
+        return new SignedDocumentPackage(SignedDocumentPackage.FORMAT, LocalDateTime.now(), exporter.getLoginId(),
+                document, verification.canonicalContent(), verification.documentHash(), signatures, caPem,
+                new SignedDocumentPackage.Verification(verification.integrity(), verification.integrityLabel(),
+                        verification.summary(), verification.checkedAt()),
+                List.of(
+                        "1. documentSha256 = SHA-256(canonicalContent) 인지 확인한다. (UTF-8)",
+                        "2. 각 서명의 signedMessage 안 document-sha256 이 documentSha256 과 같은지 확인한다.",
+                        "3. 각 서명의 previous-signature-sha256 이 바로 앞 서명의 signatureSha256"
+                                + " (= SHA-256(앞 signedMessage + \"\\n\" + 앞 signatureValue)) 와 같은지 확인한다. 기안(step 0)은 none.",
+                        "4. 각 certificatePem 이 caCertificatePem 으로 서명됐는지 확인한다. (openssl verify -CAfile ca.pem cert.pem)",
+                        "5. signatureValue(ECDSA P-256 r||s 64바이트, Base64)를 certificatePem 의 공개키로"
+                                + " signedMessage(UTF-8)에 대해 SHA-256 으로 검증한다."));
     }
 
     // ================================================================ 유틸

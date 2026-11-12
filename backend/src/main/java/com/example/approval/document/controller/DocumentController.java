@@ -7,6 +7,7 @@ import com.example.approval.document.dto.DocumentRequest;
 import com.example.approval.document.dto.DocumentSummaryResponse;
 import com.example.approval.document.dto.SignatureRequest;
 import com.example.approval.document.dto.SignatureVerificationResponse;
+import com.example.approval.document.dto.SignedDocumentPackage;
 import com.example.approval.document.service.DocumentService;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -76,6 +77,22 @@ public class DocumentController {
     public DocumentDetailResponse reject(Authentication auth, @PathVariable Long id,
                                          @RequestBody(required = false) DecisionRequest body) {
         return documentService.decide(auth.getName(), id, false, body);
+    }
+
+    /**
+     * 전자서명 문서 원본 저장 (.json): 문서 + 서명 사슬 + 서명자 인증서 + 루트 CA.
+     * 시스템 밖에서도 이 파일만으로 서명을 다시 검증할 수 있다.
+     */
+    @GetMapping("/{id}/export")
+    public ResponseEntity<SignedDocumentPackage> export(Authentication auth, @PathVariable Long id) {
+        SignedDocumentPackage pkg = documentService.exportSigned(auth.getName(), id);
+        String base = pkg.document().docNumber() == null ? "document-" + id : pkg.document().docNumber();
+        ContentDisposition disposition = ContentDisposition.attachment()
+                .filename(base + ".signed.json", StandardCharsets.UTF_8).build();
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .body(pkg);
     }
 
     /** 결재 전자서명 검증 (인증서·서명값·문서 위변조 여부) */

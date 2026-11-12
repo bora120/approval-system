@@ -51,9 +51,10 @@ DB는 팀 공용 Supabase(PostgreSQL)를 사용합니다. 접속 정보는 GitHu
 1. `backend/.env.example` 을 복사해 같은 폴더에 `backend/.env` 로 저장
 2. Supabase 대시보드 → **Connect** → **Session pooler** 의 host / user, 그리고 DB 비밀번호를 `.env` 에 입력
 3. (프로젝트 최초 1회, 한 사람만) Supabase **SQL Editor** 에서 `create schema if not exists app;` 실행
-
-테이블은 서버를 켤 때 자동으로 `app` 스키마에 만들어집니다 (`ddl-auto: update`).
 4. `backend/.env` 에 `CA_KEY_PASSWORD` (전자서명용 사내 인증기관 비밀번호, 12자 이상)를 추가 — **팀원 모두 같은 값**
+
+테이블과 새 컬럼은 서버를 켤 때 자동으로 `app` 스키마에 만들어집니다 (`ddl-auto: update`).
+자동 생성이 막힌 환경이면 [`docs/approval-pki-backup-migration.sql`](docs/approval-pki-backup-migration.sql) 을 SQL Editor 에서 한 번 실행하세요 (여러 번 실행해도 안전).
 
 ## 전자서명 (PKI 인증서 기반 결재)
 결재 = 결재자의 전자서명을 문서에 차례로 추가하는 것. 상신·승인·반려는 모두 **X.509 인증서 전자서명**으로만 처리됩니다.
@@ -62,10 +63,35 @@ DB는 팀 공용 Supabase(PostgreSQL)를 사용합니다. 접속 정보는 GitHu
 | 구성 | 내용 |
 |---|---|
 | 사내 인증기관(CA) | 서버가 처음 켜질 때 루트 인증서(ECDSA P-256) 생성 → `pki_ca` 테이블에 저장. CA 개인키는 `CA_KEY_PASSWORD` 로 암호화(PBKDF2 + AES-256-GCM) |
-| 인증서 발급 (`/certificate`) | 브라우저가 키쌍 생성 → 개인키는 **인증서 암호**로 암호화해 브라우저(IndexedDB)에만 저장 → 공개키 + 개인키 소유 증명(서명) + 로그인 비밀번호(본인 확인)로 요청 → CA 가 X.509 v3 인증서 발급 |
+| 인증서 발급 (`/certificate`) | 브라우저가 키쌍 생성 → 개인키를 **인증서 암호**로 암호화 → 공개키 + 개인키 소유 증명(서명) + 로그인 비밀번호(본인 확인)로 요청 → CA 가 X.509 v3 인증서 발급 |
+| 인증서 · 개인키 서버 보관 | **인증서**는 공개 문서라 DB 에 그대로 저장·공개 (`GET /api/pki/users/{아이디}/certificate`). **개인키**는 인증서 암호로 암호화(PBKDF2 60만 회 + AES-256-GCM)한 **암호문만** DB 에 저장. 인증서 암호는 서버로 보내지 않으므로 서버·DB 관리자도 개인키를 풀 수 없음 |
+| 다른 PC 에서 결재 | 새 브라우저에서 결재하면 서버 암호문을 **자동으로 내려받아** 인증서 암호로 풀어서 서명. 예전에 발급받아 서버 백업이 없는 사람은 다음 접속 때 **자동 백업** |
+| 한 번 인증 (`/certificate` 또는 서명 창) | 인증서 암호를 한 번 입력하고 "로그아웃 전까지 인증 유지"를 켜면, 이후 결재는 **암호 없이 확인 버튼만** 눌러 서명. 30분 미사용 시 자동 잠금, 최대 8시간, 로그아웃·재발급 시 즉시 잠금. 헤더에 🔓/🔒 로 표시 |
 | 기안자 서명 (상신) | "전자서명 후 상신" → 임시저장 후 인증서 암호 입력 → 문서 내용 해시에 서명 → 서명 사슬의 첫 고리 |
 | 결재자 서명 (승인/반려) | 문서 해시 + 결재 의견 + **바로 앞 서명의 해시**에 서명 → 기안 ← 1차 ← 2차… **서명 사슬** |
 | 자동 검증 | 결재할 때(앞 서명이 깨져 있으면 결재 차단), 문서를 열 때, 30분마다 주기 감사로 서명 사슬 전체를 다시 검증 → 문서의 `integrity`(서명 유효/검증 실패)에 기록, 목록·상세에 배지로 표시 |
+
+## 문서 보기 · 인쇄 · 저장 (한 화면 뷰어)
+문서 보기(`/documents/{id}`) 한 화면에서 모두 확인합니다. 다른 화면으로 이동할 필요가 없습니다.
+
+| 위치 | 내용 |
+|---|---|
+| 맨 위 요약 줄 | 상태 · 지금 결재할 사람(몇 번째인지) · 전자서명 검증 결과 |
+| 결재란 | 직책 / 이름(도장) / 날짜 + 칸마다 **✔ 전자서명**(유효) 또는 **✖ 서명 검증 실패** |
+| 본문 · 첨부 | 종이 문서 모양, 첨부파일마다 SHA-256 |
+| 전자서명 내역 · 결재 의견 | 단계 · 서명자 · 처리 · 의견 · 일시 · 인증서 일련번호 · 검증을 표 하나로. "상세"를 누르면 그 자리에서 서명 원문·서명값·인증서가 펼쳐지고, 서명자 인증서(.crt)를 내려받을 수 있음 |
+
+| 버튼 | 동작 |
+|---|---|
+| 인쇄 | A4 에 맞춘 종이 문서. 메뉴·버튼은 빠지고, 맨 아래에 문서번호·문서 해시·검증 결과·출력 시각이 찍힘 |
+| PDF로 저장 | 인쇄 창에서 대상(프린터)을 **"PDF로 저장"** 으로 선택. 파일 이름은 `문서번호_제목` |
+| 서명 원본 저장 | `문서번호.signed.json` — 문서 내용 + 서명 사슬 + 서명자 인증서 + 루트 CA. **시스템 밖에서도 이 파일만으로 서명을 다시 검증**할 수 있음 (검증 방법이 파일 안에 적혀 있음). 개인키 정보는 들어 있지 않음 |
+
+- 문서는 **웹에서만 작성**합니다. 정해진 입력 칸(제목·내용·금액·휴가 기간 등)에 쓴 내용만 전자서명 대상이 되고, 첨부파일은 참고 자료로 해시만 서명에 포함됩니다.
+
+## 결재 알림
+- 헤더의 **결재함** 옆 숫자 = 지금 내가 결재할 문서 수 (15초마다, 그리고 내가 상신·결재한 직후 바로 갱신)
+- **알림 켜기**를 누르고 허용하면, 새 결재가 오면 브라우저 알림이 뜹니다 (탭이 열려 있는 동안)
 
 - 코드: `backend/.../pki/` (CA·인증서), `document/service/DocumentSignatureService.java` (서명 원문·검증), `e-approval-next/features/pki/` (브라우저 키·서명)
 - 외부 라이브러리 없이 JDK 표준 API + 브라우저 Web Crypto API 만 사용 (X.509 인코딩은 `pki/crypto/Der.java` 직접 구현)
@@ -116,8 +142,16 @@ npm run dev
 | GET | /api/documents?status= | 로그인 | 내가 작성한 문서 |
 | GET | /api/documents/inbox | 로그인 | 내가 결재할 차례인 문서 |
 | GET | /api/documents/decided | 로그인 | 내가 승인·반려한 문서 (최근 100건) |
-| POST | /api/documents/{id}/approve | 결재 차례인 사람 | 승인 (`{"comment": "선택"}`) → 다음 결재자로, 마지막이면 승인완료 |
-| POST | /api/documents/{id}/reject | 결재 차례인 사람 | 반려 (`{"comment": "필수, 500자 이하"}`) |
+| POST | /api/documents/{id}/submit | 작성자 | 기안자 전자서명과 함께 상신 (`{signature, signedAt, certificateSerial}`) |
+| POST | /api/documents/{id}/approve | 결재 차례인 사람 | 승인 (`{comment, signature, signedAt, certificateSerial}`) → 다음 결재자로, 마지막이면 승인완료 |
+| POST | /api/documents/{id}/reject | 결재 차례인 사람 | 반려 (의견 필수, 전자서명 필수) |
+| GET | /api/documents/{id}/signatures | 열람 권한 | 서명 사슬 검증 결과 |
+| GET | /api/documents/{id}/export | 열람 권한 (상신된 문서) | 서명 원본 `.signed.json` 내려받기 |
+| GET | /api/pki/me | 로그인 | 내 인증서 + 서버 백업 여부(`privateKeyBackedUp`) |
+| POST | /api/pki/challenge · /api/pki/certificates | 로그인 | 인증서 발급 (암호화 개인키 함께 보관) |
+| GET · PUT | /api/pki/me/private-key-backup | 본인만 | 내 암호화 개인키 내려받기 / 백업 |
+| GET | /api/pki/users/{loginId}/certificate | 로그인 | 다른 사람의 공개 인증서 |
+| GET | /api/pki/certificates/{serial} · /api/pki/ca-certificate | 로그인 | 인증서 / 루트 CA 내려받기 (.crt) |
 | POST | /api/documents/{id}/copy | 작성자 (반려 문서) | 내용·결재선을 복사한 새 임시저장 문서 생성 |
 | POST | /api/documents/{id}/withdraw | 작성자 | 첫 결재 전이면 회수 |
 
@@ -188,8 +222,10 @@ npm run dev
 - [ ] 로그인 실패 횟수 제한
 - [x] DB를 Supabase(PostgreSQL)로 전환 (`backend/.env.example` 참고)
 - [x] 결재 승인·반려를 PKI 인증서 전자서명으로 변경
-- [ ] 기안자도 상신할 때 전자서명 (지금은 결재자만 서명)
+- [x] 기안자도 상신할 때 전자서명
+- [x] 개인키 암호문 서버 보관 + 다른 PC 자동 복원
+- [x] 한 번 인증하면 로그아웃 전까지 사용 (30분 미사용 자동 잠금)
+- [x] 한 화면 문서 뷰어 + 인쇄 / PDF / 서명 원본 저장
+- [x] 결재 알림 (헤더 배지 + 브라우저 알림)
 - [x] 기본 관리자 계정 제거 → 최초 대표 등록 방식으로 변경
 - [x] 결재 승인·반려·다시 작성
-
-# e-approval-integrated

@@ -85,3 +85,27 @@
 @media print {
   .pki-modal { display: none; }
 }
+
+/* ===== 문서 보기: 전자서명 내역 표 ===== */
+.pki-sig-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: var(--fs-xs); }
+.pki-sig-table th, .pki-sig-table td { border-bottom: 1px solid var(--c-line); padding: 7px 6px; text-align: left; vertical-align: top; }
+.pki-sig-table thead th { border-top: 1px solid var(--c-ink); border-bottom: 1px solid var(--c-ink); font-weight: 600; white-space: nowrap; }
+.pki-sig-table tr.is-fail td { font-weight: 700; }
+.pki-sig-table td.pki-sig-result { white-space: nowrap; font-weight: 600; }
+.pki-sig-comment { white-space: pre-wrap; max-width: 220px; }
+.pki-sig-table .pki-mono { font-size: 10px; }
+.pki-sig-detail > td { background: var(--c-soft); }
+.pki-sig-detail-box { display: flex; flex-direction: column; gap: 10px; padding: 6px 4px; }
+.pki-sig-foot { margin-top: 6px; }
+.pki-check { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--c-sub); cursor: pointer; }
+.pki-session-note { border: 1px solid var(--c-black); padding: 10px 12px; font-size: var(--fs-sm); line-height: 1.6; }
+.pki-modal-box > p.pki-muted { white-space: pre-line; }
+.pki-session { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+@media (max-width: 720px) {
+  .pki-sig-table { display: block; overflow-x: auto; }
+}
+@media print {
+  .pki-sig-table { font-size: 8pt; }
+  .pki-sig-table th, .pki-sig-table td { padding: 4px 4px; }
+}
+.pki-session input { padding: 6px 8px; border: 1px solid var(--c-line); border-radius: var(--radius); font-size: var(--fs-sm); }

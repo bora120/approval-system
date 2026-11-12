@@ -1,4 +1,4 @@
-import type { ApprovalLine, Approver, DocumentStatus } from '../types'
+import type { ApprovalLine, Approver, DocumentStatus, SignatureVerification } from '../types'
 import { formatDate } from '../utils'
 
 interface Props {
@@ -7,10 +7,31 @@ interface Props {
   status: DocumentStatus
   lines: ApprovalLine[]
   writerSigned: boolean
+  /** 서명 검증 결과가 있으면 칸마다 ✔(유효) / ✖(검증 실패)를 표시 */
+  verification?: SignatureVerification | null
 }
 
 /** 종이 결재 문서의 "결재란"처럼 직책 / 이름(도장) / 날짜를 칸으로 보여준다 */
-export default function ApprovalStampTable({ writer, submittedAt, status, lines, writerSigned }: Props) {
+export default function ApprovalStampTable({ writer, submittedAt, status, lines, writerSigned, verification }: Props) {
+  const resultOf = (step: number) => verification?.signatures.find((s) => s.step === step)
+
+  const signMark = (step: number, signed: boolean, serial?: string | null) => {
+    if (!signed) return null
+    const r = resultOf(step)
+    if (r && !r.valid) {
+      return (
+        <small className="apv-stamp-signed apv-stamp-signed--fail" title={r.summary}>
+          ✖ 서명 검증 실패
+        </small>
+      )
+    }
+    return (
+      <small className="apv-stamp-signed" title={serial ? `인증서 일련번호 ${serial}` : undefined}>
+        {r?.valid ? '✔ 전자서명' : '전자서명'}
+      </small>
+    )
+  }
+
   return (
     <table className="apv-stamp-table">
       <tbody>
@@ -28,18 +49,14 @@ export default function ApprovalStampTable({ writer, submittedAt, status, lines,
         <tr>
           <td className="apv-stamp-sign">
             {status !== 'DRAFT' ? <span className="apv-stamp apv-stamp--writer">{writer.name}</span> : writer.name}
-            {writerSigned && <small className="apv-stamp-signed">전자서명</small>}
+            {signMark(0, writerSigned)}
           </td>
           {lines.map((l) => (
             <td key={l.stepOrder} className={`apv-stamp-sign apv-stamp-sign--${l.status.toLowerCase()}`}>
               {l.status === 'APPROVED' && <span className="apv-stamp">승인</span>}
               {l.status === 'REJECTED' && <span className="apv-stamp apv-stamp--rejected">반려</span>}
               <div>{l.approver.name}</div>
-              {l.signed && (
-                <small className="apv-stamp-signed" title={`인증서 일련번호 ${l.certificateSerial ?? ''}`}>
-                  전자서명
-                </small>
-              )}
+              {signMark(l.stepOrder, l.signed, l.certificateSerial)}
               {l.status === 'CURRENT' && <small className="apv-stamp-current">결재 차례</small>}
             </td>
           ))}
