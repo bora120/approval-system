@@ -170,7 +170,8 @@ export default function AttachmentPreview({ docId, attachments }: Props) {
             {kind !== 'none' && loading && <p className="apv-preview-empty">불러오는 중...</p>}
             {kind !== 'none' && error && <p className="apv-preview-empty">{error}</p>}
             {loaded?.url && kind === 'pdf' && (
-              <iframe src={loaded.url} title={`${selected.originalName} 미리보기`} />
+              // navpanes=0: 왼쪽 페이지 썸네일 칸 숨김 / view=FitH: 가로 폭에 꽉 맞춤 (크롬·엣지 PDF 뷰어 옵션)
+              <iframe src={`${loaded.url}#navpanes=0&view=FitH`} title={`${selected.originalName} 미리보기`} />
             )}
             {loaded?.url && kind === 'image' && (
               // eslint-disable-next-line @next/next/no-img-element
