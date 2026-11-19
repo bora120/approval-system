@@ -1,14 +1,13 @@
 package com.example.approval.domain;
 
-/**
- * 직책. 선언 순서 = 직급 순서 (낮은 직책 → 높은 직책). 기본 결재선 추천에 이 순서를 사용하므로 순서를 지킬 것.
- * requiresApproval = true 인 직책은 가입 후 관리자 승인이 있어야 로그인 가능.
- * selfSignup = false 인 직책(부대표·대표)은 회원가입으로 고를 수 없고 대표만 지정할 수 있다.
- */
+/** 직급. 선언 순서는 낮은 직급에서 높은 직급 순서이며 결재선 추천에도 사용한다. */
 public enum Position {
     STAFF("사원", false, true),
-    TEAM_LEADER("팀장", true, true),
-    DIRECTOR("본부장", true, true),
+    JUNIOR("주임", true, true),
+    ASSISTANT_MANAGER("대리", true, true),
+    MANAGER("과장", true, true),
+    DEPUTY_GENERAL_MANAGER("차장", true, true),
+    GENERAL_MANAGER("부장", true, true),
     VICE_CEO("부대표", true, false),
     CEO("대표", true, false);
 

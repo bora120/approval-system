@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import HomeMenu from "@/components/HomeMenu";
+import OrganizationTree from "@/features/organization/components/OrganizationTree";
 
 export default function HomePage() {
   return (
@@ -15,6 +16,7 @@ export default function HomePage() {
         </p>
 
         <HomeMenu />
+        <OrganizationTree />
       </main>
 
       <Footer />

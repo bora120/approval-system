@@ -12,7 +12,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   SUPER_ADMIN: "최고 관리자(대표)",
 };
 
-/** 조직 관리(가입 승인·직책 변경)를 할 수 있는지 */
+/** 조직 관리(가입 승인·직급 변경)를 할 수 있는지 */
 export function canManageUsers(user: Pick<User, "role"> | null | undefined): boolean {
   return user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
 }

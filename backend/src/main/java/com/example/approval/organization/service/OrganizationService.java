@@ -5,6 +5,7 @@ import com.example.approval.domain.Role;
 import com.example.approval.domain.User;
 import com.example.approval.domain.UserStatus;
 import com.example.approval.dto.UserResponse;
+import com.example.approval.organization.dto.OrganizationMemberResponse;
 import com.example.approval.exception.ApiException;
 import com.example.approval.repository.UserRepository;
 import org.springframework.http.HttpStatus;
@@ -15,12 +16,12 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * 조직 관리: 직원 목록, 직책 변경, 관리자 권한 부여/회수.
+ * 조직 관리: 직원 목록, 일반 직급 변경, 관리자 권한 부여/회수.
  *
  * 권한 규칙
- *  - 관리자(ADMIN)·대표(SUPER_ADMIN): 직원 목록 조회, 사원~본부장 직책 변경
- *  - 대표만: 부대표 지정/해제, 관리자 권한 부여/회수
- *  - 아무도: 대표 계정 변경, 대표 직책 부여, 자기 자신의 직책·권한 변경
+ *  - 관리자(ADMIN)·대표(SUPER_ADMIN): 직원 목록 조회, 사원~부장 직급 변경
+ *  - 대표·부대표 직급은 고정, 관리자 권한 부여/회수는 대표만 가능
+ *  - 자기 자신의 직급·권한 변경은 불가
  */
 @Service
 public class OrganizationService {
@@ -29,6 +30,20 @@ public class OrganizationService {
 
     public OrganizationService(UserRepository userRepository) {
         this.userRepository = userRepository;
+    }
+
+    /** 로그인 사용자가 확인하는 조직도: 승인된 직원의 공개 조직 정보만 반환 */
+    @Transactional(readOnly = true)
+    public List<OrganizationMemberResponse> organizationTree() {
+        return userRepository.findAllByStatusOrderByCreatedAtAsc(UserStatus.ACTIVE).stream()
+                .filter(User::isEmployee)
+                .filter(u -> u.getPosition() != null)
+                .sorted(Comparator
+                        .comparing((User u) -> u.getDepartment() == null ? "" : u.getDepartment())
+                        .thenComparing((User u) -> -u.getPosition().ordinal())
+                        .thenComparing(User::getName))
+                .map(OrganizationMemberResponse::from)
+                .toList();
     }
 
     /** 전체 직원: 승인 대기 → 직책 높은 순 → 이름 순 */
@@ -47,15 +62,12 @@ public class OrganizationService {
     public UserResponse changePosition(String actorLoginId, Long targetId, Position position) {
         User actor = currentManager(actorLoginId);
         User target = findUser(targetId);
-        boolean actorIsCeo = actor.getRole() == Role.SUPER_ADMIN;
-
         if (position == null) throw badRequest("직책을 선택하세요.");
         if (target.getId().equals(actor.getId())) throw forbidden("자기 자신의 직책은 바꿀 수 없습니다.");
         if (target.getRole() == Role.SUPER_ADMIN) throw forbidden("대표 계정의 직책은 바꿀 수 없습니다.");
         if (!target.isEmployee()) throw forbidden("시스템 관리자 계정에는 직책을 지정할 수 없습니다.");
-        if (position == Position.CEO) throw forbidden("대표 직책은 지정할 수 없습니다. 대표는 최초 설정에서 한 명만 만들어집니다.");
-        if ((position == Position.VICE_CEO || target.getPosition() == Position.VICE_CEO) && !actorIsCeo) {
-            throw forbidden("부대표 지정·해제는 대표만 할 수 있습니다.");
+        if (position == Position.CEO || position == Position.VICE_CEO || target.getPosition() == Position.VICE_CEO) {
+            throw forbidden("대표와 부대표 직책은 고정되어 있어 변경할 수 없습니다.");
         }
 
         target.changePosition(position);

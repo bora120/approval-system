@@ -9,6 +9,7 @@ import KeyStatus from "../components/KeyStatus";
 import { decryptAll, useMessengerSession } from "../engine";
 import { fileStatusText, saveSecureFile } from "../files";
 import { fileStateOf, type DecryptedMessage, type EncryptedMessage, type FileItem } from "../types";
+import { decryptFile } from "../crypto";
 import { formatBytes, formatShortTime } from "../utils";
 
 type Box = "received" | "sent";
@@ -33,6 +34,8 @@ export default function FileBoxPage() {
   const [keyword, setKeyword] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [rowError, setRowError] = useState<Record<number, string>>({});
+  const [preview, setPreview] = useState<{ url: string; name: string; type: string } | null>(null);
+  const [previewingId, setPreviewingId] = useState<number | null>(null);
 
   const ring = session.ring;
   const userId = user?.id ?? null;
@@ -92,6 +95,34 @@ export default function FileBoxPage() {
       setBusyId(null);
     }
   };
+
+  const previewFile = async (row: Row) => {
+    const id = row.item.message.id;
+    const meta = row.dec.payload?.file;
+    if (!meta || !row.dec.aesKey) return;
+    setPreviewingId(id);
+    setRowError((p) => ({ ...p, [id]: "" }));
+    try {
+      const cipher = await messengerApi.downloadFile(id);
+      const blob = await decryptFile(row.dec.aesKey, meta, cipher);
+      const url = URL.createObjectURL(blob);
+      setPreview((current) => {
+        if (current) URL.revokeObjectURL(current.url);
+        return { url, name: meta.name, type: meta.type || blob.type || "application/octet-stream" };
+      });
+      if (!row.item.mine && !row.item.message.fileDownloadedAt) {
+        updateRow({ ...row.item.message, fileDownloadedAt: new Date().toISOString() });
+      }
+    } catch (e) {
+      setRowError((p) => ({ ...p, [id]: e instanceof Error ? e.message : "미리보기를 열 수 없습니다." }));
+    } finally {
+      setPreviewingId(null);
+    }
+  };
+
+  useEffect(() => () => {
+    if (preview?.url) URL.revokeObjectURL(preview.url);
+  }, [preview?.url]);
 
   const remove = async (row: Row) => {
     const id = row.item.message.id;
@@ -201,9 +232,14 @@ export default function FileBoxPage() {
                     )}
                     <div className="sm-filebox-actions">
                       {!gone && !row.dec.error && (
-                        <button className="sm-btn sm-btn--small sm-btn--ghost" onClick={() => save(row)} disabled={busyId === m.id}>
-                          {busyId === m.id ? "처리 중..." : "저장"}
-                        </button>
+                        <>
+                          <button className="sm-btn sm-btn--small sm-btn--ghost" onClick={() => void previewFile(row)} disabled={previewingId === m.id || busyId === m.id}>
+                            {previewingId === m.id ? "여는 중..." : "미리보기"}
+                          </button>
+                          <button className="sm-btn sm-btn--small sm-btn--ghost" onClick={() => save(row)} disabled={busyId === m.id}>
+                            {busyId === m.id ? "처리 중..." : "저장"}
+                          </button>
+                        </>
                       )}
                       {!gone && (
                         <button className="sm-btn sm-btn--small sm-btn--ghost" onClick={() => remove(row)} disabled={busyId === m.id}>
@@ -221,6 +257,33 @@ export default function FileBoxPage() {
           </ul>
         )}
       </section>
+
+      {preview && (
+        <div className="sm-preview-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPreview(null); }}>
+          <section className="sm-preview-dialog" role="dialog" aria-modal="true" aria-label={`${preview.name} 미리보기`}>
+            <header className="sm-preview-header">
+              <div><strong>{preview.name}</strong><small>복호화 및 무결성 검증 완료</small></div>
+              <button type="button" className="sm-btn sm-btn--small sm-btn--ghost" onClick={() => setPreview(null)}>닫기</button>
+            </header>
+            <div className="sm-preview-content">
+              {preview.type.startsWith("image/") ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={preview.url} alt={preview.name} />
+              ) : preview.type === "application/pdf" ? (
+                <iframe src={preview.url} title={`${preview.name} 미리보기`} />
+              ) : preview.type.startsWith("text/") ? (
+                <iframe src={preview.url} title={`${preview.name} 미리보기`} />
+              ) : (
+                <div className="sm-preview-unavailable">
+                  <strong>이 파일 형식은 브라우저 미리보기를 지원하지 않습니다.</strong>
+                  <p>파일을 저장한 뒤 전용 프로그램에서 확인해 주세요.</p>
+                  <a className="sm-btn sm-btn--primary" href={preview.url} download={preview.name}>파일 저장</a>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
 
       {hasMore && (
         <div className="sm-center">

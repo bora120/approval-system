@@ -81,3 +81,143 @@
   .org-page { padding: 24px 16px 56px; }
   .org-search { margin-left: 0; width: 100%; margin-top: 8px; }
 }
+
+
+/* 로그인 후 메인 화면 조직도 */
+.organization-tree-section {
+  width: min(1120px, calc(100% - 40px));
+  margin: 64px auto 28px;
+  padding: 30px;
+  border: 1px solid var(--c-line);
+  background: var(--c-white);
+  text-align: left;
+}
+.organization-tree-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--c-line);
+}
+.organization-tree-eyebrow {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--c-faint);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+}
+.organization-tree-heading h2 { font-size: 24px; font-weight: 750; }
+.organization-tree-heading p { margin-top: 7px; color: var(--c-sub); font-size: 13px; }
+.organization-tree-count {
+  flex: none;
+  padding: 7px 11px;
+  border: 1px solid var(--c-line);
+  color: var(--c-sub);
+  font-size: 12px;
+}
+.organization-tree-message { padding: 28px 0; color: var(--c-sub); font-size: 13px; }
+.organization-tree-message.is-error { color: #b42318; }
+.organization-tree-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 18px;
+  padding-top: 22px;
+}
+.organization-department {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--c-line);
+  background: #fff;
+}
+.organization-department-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--c-line);
+}
+.organization-department-title h3 { font-size: 15px; font-weight: 750; }
+.organization-department-title > span:last-child {
+  margin-left: auto;
+  color: var(--c-faint);
+  font-size: 11px;
+}
+.organization-department-mark { width: 7px; height: 7px; background: var(--c-ink); }
+.organization-member-tree { margin: 14px 0 0 8px; padding: 0; list-style: none; }
+.organization-member-node {
+  position: relative;
+  min-height: 54px;
+  padding: 0 0 10px 22px;
+  border-left: 1px solid #d8d8d8;
+}
+.organization-member-node:last-child { min-height: 42px; padding-bottom: 0; border-left-color: transparent; }
+.organization-member-connector {
+  position: absolute;
+  top: 18px;
+  left: 0;
+  width: 15px;
+  border-top: 1px solid #d8d8d8;
+}
+.organization-member-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 11px;
+  border: 1px solid var(--c-line);
+  background: #fafafa;
+}
+.organization-member-rank {
+  min-width: 38px;
+  color: var(--c-sub);
+  font-size: 11px;
+}
+.organization-member-card strong { color: var(--c-ink); font-size: 13px; font-weight: 700; }
+@media (max-width: 640px) {
+  .organization-tree-section { width: calc(100% - 24px); margin-top: 42px; padding: 20px 15px; }
+  .organization-tree-heading { align-items: flex-start; }
+  .organization-tree-heading h2 { font-size: 21px; }
+  .organization-tree-count { font-size: 11px; }
+  .organization-tree-grid { grid-template-columns: 1fr; }
+}
+
+/* 부서 선택 탭 */
+.organization-department-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 18px 0 2px;
+}
+.organization-department-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid var(--c-line);
+  background: #fff;
+  color: var(--c-sub);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .18s ease, color .18s ease, border-color .18s ease;
+}
+.organization-department-tab span {
+  display: inline-grid;
+  min-width: 20px;
+  height: 20px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: #f1f1f1;
+  color: #666;
+  font-size: 10px;
+}
+.organization-department-tab:hover,
+.organization-department-tab.is-active {
+  border-color: var(--c-ink);
+  background: var(--c-ink);
+  color: #fff;
+}
+.organization-department-tab.is-active span { background: #fff; color: var(--c-ink); }

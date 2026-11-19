@@ -57,7 +57,7 @@ export default function SetupPage() {
       <div className="form-box org-setup">
         <h1>최초 대표 등록</h1>
         <p className="auth-description">
-          회사의 대표(최고 관리자) 계정을 만듭니다. 대표는 관리자 지정, 부대표 지정을 할 수 있으며 이 화면은 대표 계정이
+          회사의 대표(최고 관리자) 계정을 만듭니다. 대표 계정은 최고 권한으로 고정되며 이 화면은 대표 계정이
           만들어지면 자동으로 닫힙니다.
         </p>
 

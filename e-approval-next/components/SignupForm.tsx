@@ -8,8 +8,11 @@ import { signup } from "@/lib/auth";
 const DEPARTMENTS = ["개발팀", "영업팀", "경영지원팀", "인사팀", "회계팀"];
 const POSITIONS = [
   { value: "STAFF", label: "사원", needsApproval: false },
-  { value: "TEAM_LEADER", label: "팀장", needsApproval: true },
-  { value: "DIRECTOR", label: "본부장", needsApproval: true },
+  { value: "JUNIOR", label: "주임", needsApproval: true },
+  { value: "ASSISTANT_MANAGER", label: "대리", needsApproval: true },
+  { value: "MANAGER", label: "과장", needsApproval: true },
+  { value: "DEPUTY_GENERAL_MANAGER", label: "차장", needsApproval: true },
+  { value: "GENERAL_MANAGER", label: "부장", needsApproval: true },
 ];
 
 export default function SignupForm() {
@@ -68,12 +71,12 @@ export default function SignupForm() {
           <option value="">부서를 선택하세요</option>
           {DEPARTMENTS.map((department) => <option key={department} value={department}>{department}</option>)}
         </select>
-        <label htmlFor="signup-position">직책</label>
+        <label htmlFor="signup-position">직급</label>
         <select id="signup-position" value={form.position}
           onChange={(e) => updateField("position", e.target.value)} required>
           {POSITIONS.map((position) => <option key={position.value} value={position.value}>{position.label}</option>)}
         </select>
-        <p className="form-hint">부대표·대표 직책은 가입 후 대표가 조직 관리에서 지정합니다.</p>
+        <p className="form-hint">부대표·대표 직급은 회원가입으로 선택할 수 없으며 별도로 고정 관리됩니다.</p>
         {selectedPosition?.needsApproval && (
           <p className="approval-notice">{selectedPosition.label} 직책은 관리자 승인 후 로그인할 수 있습니다.</p>
         )}

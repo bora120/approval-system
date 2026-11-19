@@ -26,7 +26,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    /** 회원가입: 사원은 바로 ACTIVE, 팀장 이상은 PENDING(관리자 승인 필요) */
+    /** 회원가입: 사원은 바로 ACTIVE, 주임 이상은 PENDING(관리자 승인 필요) */
     @Transactional
     public SignupResponse signup(SignupRequest req) {
         if (userRepository.existsByLoginId(req.loginId())) {

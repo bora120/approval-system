@@ -26,7 +26,7 @@ public class ApprovalLineService {
     /**
      * 기본 결재선 추천: 작성자보다 높은 직책을 낮은 순서대로 한 명씩.
      * 같은 부서 사람을 우선으로 고르고, 없으면 다른 부서에서 고른다.
-     * 예) 개발팀 사원 → 개발팀 팀장 → 본부장 → 대표
+     * 예) 개발팀 사원 → 개발팀 주임 → 대리 → 과장 → 차장 → 부장 → 대표
      */
     public List<ApproverResponse> defaultLine(String loginId) {
         User writer = currentUser(loginId);

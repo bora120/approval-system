@@ -64,9 +64,21 @@ public class EnumColumnCompatibility implements ApplicationRunner {
                 else if (product.contains("mysql") || product.contains("mariadb")) fixMySql(conn, col);
                 else if (product.contains("postgresql")) fixPostgres(conn, col);
             }
+            migrateLegacyPositions(conn);
         } catch (SQLException | RuntimeException e) {
             // 호환 처리 실패가 서버 시작을 막지 않도록 경고만 남김
             log.warn("enum 컬럼 호환 처리 중 오류가 발생했습니다. (새 직책·권한 저장이 실패하면 users 테이블의 CHECK 제약을 확인하세요)", e);
+        }
+    }
+
+    /** 이전 직급 값을 새 체계의 가장 가까운 단계로 한 번 변환한다. */
+    private void migrateLegacyPositions(Connection conn) throws SQLException {
+        try (Statement st = conn.createStatement()) {
+            int teamLeader = st.executeUpdate("UPDATE users SET position = 'ASSISTANT_MANAGER' WHERE position = 'TEAM_LEADER'");
+            int director = st.executeUpdate("UPDATE users SET position = 'GENERAL_MANAGER' WHERE position = 'DIRECTOR'");
+            if (teamLeader + director > 0) {
+                log.info("기존 직급 데이터 변환: 팀장 {}명 → 대리, 본부장 {}명 → 부장", teamLeader, director);
+            }
         }
     }
 

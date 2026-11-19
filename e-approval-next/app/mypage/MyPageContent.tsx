@@ -36,7 +36,7 @@ export default function MyPageContent() {
             <p><strong>이름</strong>{user.name}</p>
             <p><strong>아이디</strong>{user.loginId}</p>
             <p><strong>부서</strong>{user.department}</p>
-            <p><strong>직책</strong>{user.positionLabel}</p>
+            <p><strong>직급</strong>{user.positionLabel}</p>
             <p><strong>권한</strong>{ROLE_LABEL[user.role]}</p>
             <p><strong>가입 상태</strong>{STATUS_TEXT[user.status as keyof typeof STATUS_TEXT] ?? user.status}</p>
           </> : <p>로그인이 필요합니다. <Link href="/auth">로그인하기</Link></p>}

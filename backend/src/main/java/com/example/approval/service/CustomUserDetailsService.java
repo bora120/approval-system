@@ -13,7 +13,7 @@ import java.util.List;
 
 /**
  * Spring Security가 로그인 시 사용자 정보를 가져오는 곳.
- * 권한: ROLE_USER / ROLE_ADMIN + 직책(POSITION_TEAM_LEADER 등)
+ * 권한: ROLE_USER / ROLE_ADMIN + 직책(POSITION_JUNIOR 등)
  *
  * 참고: 승인 대기(PENDING) 체크를 여기서 하지 않고 AuthController에서
  * "비밀번호가 맞은 뒤에" 한다. 여기서 막으면 비밀번호가 틀려도

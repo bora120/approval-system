@@ -11,8 +11,8 @@ const STATUS_LABEL: Record<User["status"], string> = { PENDING: "승인 대기",
 
 /**
  * 조직 관리 (/admin) — 관리자·대표 전용
- *  - 관리자: 가입 승인/거절, 사원~본부장 직책 변경
- *  - 대표:   위 기능 + 부대표 지정/해제 + 관리자 권한 부여/회수
+ *  - 관리자: 가입 승인/거절, 사원~부장 직급 변경
+ *  - 대표:   위 기능 + 관리자 권한 부여/회수
  * (화면은 안내용이고, 실제 권한 검사는 서버 OrganizationService 에서 한다)
  */
 export default function OrganizationPage() {
@@ -61,14 +61,13 @@ export default function OrganizationPage() {
 
   const changePosition = (u: User, position: Position) => {
     const label = ASSIGNABLE_POSITIONS.find((p) => p.value === position)?.label ?? position;
-    if (position === "VICE_CEO" && !window.confirm(`${u.name}님을 부대표로 지정할까요?`)) return;
-    void run(u, () => organizationApi.changePosition(u.id, position), `${u.name}님의 직책을 ${label}(으)로 바꿨습니다.`);
+    void run(u, () => organizationApi.changePosition(u.id, position), `${u.name}님의 직급을 ${label}(으)로 바꿨습니다.`);
   };
 
   const changeRole = (u: User, role: "USER" | "ADMIN") => {
     const msg =
       role === "ADMIN"
-        ? `${u.name}님에게 관리자 권한을 줄까요?\n가입 승인과 직책 변경을 할 수 있게 됩니다.`
+        ? `${u.name}님에게 관리자 권한을 줄까요?\n가입 승인과 직급 변경을 할 수 있게 됩니다.`
         : `${u.name}님의 관리자 권한을 회수할까요?`;
     if (!window.confirm(msg)) return;
     void run(u, () => organizationApi.changeRole(u.id, role), `${u.name}님의 권한을 ${ROLE_LABEL[role]}(으)로 바꿨습니다.`);
@@ -112,8 +111,8 @@ export default function OrganizationPage() {
       <h1 className="org-title">조직 및 계정 관리</h1>
       <p className="org-lead">
         {isCeo
-          ? "대표는 가입 승인, 직책 변경, 부대표 지정, 관리자 권한 부여·회수를 할 수 있습니다."
-          : "관리자는 가입 승인과 사원~본부장 직책 변경을 할 수 있습니다. 부대표 지정과 관리자 권한은 대표만 바꿀 수 있습니다."}
+          ? "대표는 가입 승인, 사원~부장 직급 변경, 관리자 권한 부여·회수를 할 수 있습니다."
+          : "관리자는 가입 승인과 사원~부장 직급 변경을 할 수 있습니다. 대표와 부대표 직급은 고정됩니다."}
       </p>
 
       <div className="org-stats">
@@ -147,7 +146,7 @@ export default function OrganizationPage() {
               <th>이름 / 아이디</th>
               <th>부서</th>
               <th>상태</th>
-              <th>직책</th>
+              <th>직급</th>
               <th>시스템 권한</th>
               <th>가입 처리</th>
             </tr>
@@ -172,8 +171,8 @@ export default function OrganizationPage() {
               const isCeoRow = u.role === "SUPER_ADMIN";
               const isSystemAdmin = u.position === null;
               const busy = busyId === u.id;
-              const positionLocked = self || isCeoRow || isSystemAdmin || (u.position === "VICE_CEO" && !isCeo);
-              const options = ASSIGNABLE_POSITIONS.filter((p) => isCeo || !p.ceoOnly || p.value === u.position);
+              const positionLocked = self || isCeoRow || isSystemAdmin || u.position === "VICE_CEO" || u.position === "CEO";
+              const options = ASSIGNABLE_POSITIONS;
 
               return (
                 <tr key={u.id} className={u.status === "PENDING" ? "is-pending" : ""}>

@@ -1,15 +1,25 @@
 import { api } from "@/lib/api-client";
 import type { Role, User } from "@/lib/auth";
 
-export type Position = "STAFF" | "TEAM_LEADER" | "DIRECTOR" | "VICE_CEO" | "CEO";
+export type Position = "STAFF" | "JUNIOR" | "ASSISTANT_MANAGER" | "MANAGER" | "DEPUTY_GENERAL_MANAGER" | "GENERAL_MANAGER" | "VICE_CEO" | "CEO";
 
-/** 조직 관리 화면에서 고를 수 있는 직책 (대표는 최초 설정에서만 생성) */
+/** 조직 관리 화면에서 변경할 수 있는 일반 직원 직급 (부대표·대표 제외) */
 export const ASSIGNABLE_POSITIONS: { value: Position; label: string; ceoOnly: boolean }[] = [
   { value: "STAFF", label: "사원", ceoOnly: false },
-  { value: "TEAM_LEADER", label: "팀장", ceoOnly: false },
-  { value: "DIRECTOR", label: "본부장", ceoOnly: false },
-  { value: "VICE_CEO", label: "부대표", ceoOnly: true },
+  { value: "JUNIOR", label: "주임", ceoOnly: false },
+  { value: "ASSISTANT_MANAGER", label: "대리", ceoOnly: false },
+  { value: "MANAGER", label: "과장", ceoOnly: false },
+  { value: "DEPUTY_GENERAL_MANAGER", label: "차장", ceoOnly: false },
+  { value: "GENERAL_MANAGER", label: "부장", ceoOnly: false },
 ];
+
+export interface OrganizationMember {
+  id: number;
+  name: string;
+  department: string | null;
+  position: Position;
+  positionLabel: string;
+}
 
 export interface SetupStatus {
   available: boolean;
@@ -31,6 +41,7 @@ export const setupApi = {
 
 export const organizationApi = {
   allUsers: () => api<User[]>("/api/admin/users/all"),
+  directory: () => api<OrganizationMember[]>("/api/organization/tree"),
   changePosition: (id: number, position: Position) =>
     api<User>(`/api/admin/users/${id}/position`, { method: "PATCH", body: JSON.stringify({ position }) }),
   changeRole: (id: number, role: Exclude<Role, "SUPER_ADMIN">) =>

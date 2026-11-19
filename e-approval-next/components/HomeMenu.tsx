@@ -43,7 +43,7 @@ export default function HomeMenu() {
         </Link>
         {canManageUsers(user) && (
           <Link href="/admin" className="menu-box admin-box">
-            <h2>조직 관리</h2><p>가입 승인, 직책 변경{user?.role === "SUPER_ADMIN" ? ", 부대표·관리자 지정" : ""}을 합니다.</p>
+            <h2>조직 관리</h2><p>가입 승인, 직급 변경{user?.role === "SUPER_ADMIN" ? ", 부대표·관리자 지정" : ""}을 합니다.</p>
           </Link>
         )}
       </div>

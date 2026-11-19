@@ -12,7 +12,7 @@ import java.util.List;
 /**
  * 조직 관리 (관리자·대표)
  *  GET   /api/admin/users/all             전체 직원
- *  PATCH /api/admin/users/{id}/position   직책 변경 (부대표 지정은 대표만)
+ *  PATCH /api/admin/users/{id}/position   일반 직급 변경 (부대표·대표 제외)
  *  PATCH /api/admin/users/{id}/role       관리자 권한 부여/회수 (대표만, SecurityConfig 에서도 제한)
  * 가입 승인/거절은 AdminUserController (/api/admin/users/{id}/approve|reject)
  */
