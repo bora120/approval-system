@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { login, safeNextPath, useAuthState } from "@/lib/auth";
 import { setupApi } from "@/features/organization/api";
+import Brand from "@/components/Brand";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -55,7 +56,7 @@ export default function LoginForm() {
 
   return (
     <section className="auth-section">
-      <h1>전자결재 시스템</h1>
+      <h1 className="brand-title"><Brand size="hero" /></h1>
       <p className="auth-description">사내 계정으로 로그인하세요.</p>
       {setupOpen && (
         <p className="setup-notice">

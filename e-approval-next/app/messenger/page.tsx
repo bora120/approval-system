@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import RequireAuth from "@/components/RequireAuth";
 import MessengerPage from "@/features/messenger/pages/MessengerPage";
 
-export const metadata: Metadata = { title: "메신저 - 전자결재 시스템" };
+export const metadata: Metadata = { title: "메신저 - nano system" };
 
 export default function MessengerRoute() {
   return (

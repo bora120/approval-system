@@ -18,11 +18,11 @@
 .setup-notice { margin: 0 0 16px; }
 .setup-notice a { color: var(--c-black); font-weight: 600; }
 
-.org-page { width: 100%; max-width: 1080px; margin: 0 auto; padding: 32px 32px 64px; color: var(--c-ink); font-size: var(--fs-base); }
+.org-page { width: 100%; max-width: var(--page-max); margin: 0 auto; padding: 32px var(--page-pad) 64px; color: var(--c-ink); font-size: var(--fs-base); }
 .org-breadcrumb { font-size: var(--fs-xs); color: var(--c-faint); margin-bottom: 10px; }
 .org-breadcrumb a { color: var(--c-faint); text-decoration: none; }
 .org-breadcrumb a:hover { color: var(--c-black); }
-.org-title { font-size: var(--fs-xl); font-weight: 600; margin-bottom: 4px; }
+.org-title { font-size: 26px; font-weight: 400; margin-bottom: 4px; }
 .org-lead { color: var(--c-sub); margin-bottom: 20px; line-height: 1.6; font-size: var(--fs-sm); }
 .org-stats { display: flex; gap: 0; align-items: stretch; flex-wrap: wrap; margin-bottom: 16px; border-top: 1px solid var(--c-line); border-left: 1px solid var(--c-line); }
 .org-stat {
@@ -84,9 +84,10 @@
 
 
 /* 로그인 후 메인 화면 조직도 */
+/* 홈 메뉴(.menu-grid)와 같은 폭으로: .main 안에서 양옆을 꽉 채운다 */
 .organization-tree-section {
-  width: min(1120px, calc(100% - 40px));
-  margin: 64px auto 28px;
+  width: 100%;
+  margin: 40px 0 0;
   padding: 30px;
   border: 1px solid var(--c-line);
   background: var(--c-white);
@@ -108,7 +109,7 @@
   font-weight: 700;
   letter-spacing: .14em;
 }
-.organization-tree-heading h2 { font-size: 24px; font-weight: 750; }
+.organization-tree-heading h2 { font-size: 28px; font-weight: 400; }
 .organization-tree-heading p { margin-top: 7px; color: var(--c-sub); font-size: 13px; }
 .organization-tree-count {
   flex: none;
@@ -176,7 +177,7 @@
 }
 .organization-member-card strong { color: var(--c-ink); font-size: 13px; font-weight: 700; }
 @media (max-width: 640px) {
-  .organization-tree-section { width: calc(100% - 24px); margin-top: 42px; padding: 20px 15px; }
+  .organization-tree-section { width: 100%; margin-top: 32px; padding: 20px 15px; }
   .organization-tree-heading { align-items: flex-start; }
   .organization-tree-heading h2 { font-size: 21px; }
   .organization-tree-count { font-size: 11px; }

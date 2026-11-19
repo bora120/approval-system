@@ -8,12 +8,12 @@
   font-size: 10px; font-weight: 600; line-height: 16px; text-align: center;
 }
 
-.sm-page { width: 100%; max-width: 1080px; margin: 0 auto; padding: 32px 32px 56px; color: var(--c-ink); font-size: var(--fs-base); }
+.sm-page { width: 100%; max-width: var(--page-max); margin: 0 auto; padding: 32px var(--page-pad) 56px; color: var(--c-ink); font-size: var(--fs-base); }
 .sm-page--narrow { max-width: 720px; }
 .sm-breadcrumb { font-size: var(--fs-xs); color: var(--c-faint); margin-bottom: 10px; }
 .sm-breadcrumb a { color: var(--c-faint); text-decoration: none; }
 .sm-breadcrumb a:hover { color: var(--c-black); }
-.sm-title { font-size: var(--fs-xl); font-weight: 600; margin-bottom: 4px; }
+.sm-title { font-size: 26px; font-weight: 400; margin-bottom: 4px; }
 .sm-lead { margin-bottom: 20px; line-height: 1.6; color: var(--c-sub); font-size: var(--fs-sm); }
 .sm-muted { color: var(--c-faint); }
 .sm-small { font-size: var(--fs-xs); }

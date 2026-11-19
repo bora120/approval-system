@@ -2,9 +2,11 @@ package com.example.approval.messenger.service;
 
 import com.example.approval.exception.ApiException;
 import com.example.approval.messenger.MessengerLimits;
+import com.example.approval.storage.FileBlobStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
@@ -12,11 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
@@ -27,6 +26,7 @@ import java.util.regex.Pattern;
  * 메신저 첨부파일 저장소.
  * 파일은 브라우저에서 이미 AES-256-GCM 으로 암호화되어 올라오므로 서버는 내용을 알 수 없다.
  * 원래 파일 이름·형식도 암호문 안에 있어 서버에는 랜덤 이름의 암호문 덩어리만 남는다.
+ * 암호문은 DB(file_blobs 테이블, Supabase)에 저장한다. (예전 디스크 저장분은 읽기만 호환)
  */
 @Service
 public class EncryptedFileStorage {
@@ -34,15 +34,12 @@ public class EncryptedFileStorage {
     private static final Logger log = LoggerFactory.getLogger(EncryptedFileStorage.class);
     private static final Pattern STORED_NAME = Pattern.compile("^[a-f0-9]{32}$");
 
-    private final Path root;
+    private final Path root; // 예전 디스크 저장 위치 (읽기 전용 호환)
+    private final FileBlobStore blobStore;
 
-    public EncryptedFileStorage(@Value("${app.upload.dir:./uploads}") String uploadDir) {
+    public EncryptedFileStorage(@Value("${app.upload.dir:./uploads}") String uploadDir, FileBlobStore blobStore) {
         this.root = Path.of(uploadDir, "messenger").toAbsolutePath().normalize();
-        try {
-            Files.createDirectories(root);
-        } catch (IOException e) {
-            throw new UncheckedIOException("메신저 업로드 폴더를 만들 수 없습니다: " + root, e);
-        }
+        this.blobStore = blobStore;
     }
 
     public record StoredBlob(String storedName, long size, String sha256) {}
@@ -56,15 +53,12 @@ public class EncryptedFileStorage {
         }
 
         String storedName = UUID.randomUUID().toString().replace("-", "");
-        Path target = resolve(storedName);
-
-        try (InputStream in = file.getInputStream();
-             DigestInputStream digestIn = new DigestInputStream(in, MessageDigest.getInstance("SHA-256"))) {
-            long size = Files.copy(digestIn, target);
-            String sha256 = HexFormat.of().formatHex(digestIn.getMessageDigest().digest());
-            return new StoredBlob(storedName, size, sha256);
+        try {
+            byte[] data = file.getBytes();
+            String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data));
+            blobStore.save(storedName, FileBlobStore.KIND_MESSENGER, data, sha256); // 메시지 저장과 같은 트랜잭션
+            return new StoredBlob(storedName, data.length, sha256);
         } catch (IOException e) {
-            delete(storedName);
             throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "파일 저장에 실패했습니다.");
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
@@ -72,17 +66,19 @@ public class EncryptedFileStorage {
     }
 
     public Resource load(String storedName) {
-        Path path = resolve(storedName);
-        if (!Files.isRegularFile(path)) {
-            throw new ApiException(HttpStatus.NOT_FOUND, "파일이 존재하지 않습니다.");
-        }
-        return new FileSystemResource(path);
+        Path legacy = resolve(storedName); // 이름 형식 검사도 함께 함
+        var data = blobStore.load(storedName);
+        if (data.isPresent()) return new ByteArrayResource(data.get());
+        if (Files.isRegularFile(legacy)) return new FileSystemResource(legacy);
+        throw new ApiException(HttpStatus.NOT_FOUND, "파일이 존재하지 않습니다.");
     }
 
     public void delete(String storedName) {
         try {
-            Files.deleteIfExists(resolve(storedName));
-        } catch (IOException | ApiException e) {
+            Path legacy = resolve(storedName);
+            blobStore.delete(storedName);
+            Files.deleteIfExists(legacy);
+        } catch (IOException | RuntimeException e) {
             log.warn("메신저 첨부파일 삭제 실패: {}", storedName, e);
         }
     }

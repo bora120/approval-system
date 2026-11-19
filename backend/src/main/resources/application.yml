@@ -43,7 +43,7 @@ app:
     # 직접 정하려면 실행 전에 환경변수 CEO_SETUP_TOKEN 을 설정 (PowerShell: $env:CEO_SETUP_TOKEN="원하는값")
     token: ${CEO_SETUP_TOKEN:}
   upload:
-    dir: ./uploads          # 결재 첨부파일·메신저 파일(암호문) 저장 폴더
+    dir: ./uploads          # (예전 버전 호환용) 파일은 이제 DB 의 file_blobs 테이블에 저장. 이 폴더는 예전 파일 읽기에만 사용
   messenger:
     file-retention-days: 7  # 메신저로 보낸 파일 보관 기간(일). 지나면 자동 삭제
   pki:

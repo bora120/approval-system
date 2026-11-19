@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 
-/** 첨부파일 정보. 실제 파일은 디스크(app.upload.dir)에 랜덤 이름으로 저장 */
+/** 첨부파일 정보. 실제 파일 내용은 DB 의 file_blobs 테이블에 같은 stored_name 으로 저장 */
 @Entity
 @Table(name = "attachments")
 public class Attachment {
@@ -21,7 +21,7 @@ public class Attachment {
     private String originalName; // 사용자가 올린 파일명 (화면 표시용)
 
     @Column(nullable = false, unique = true, length = 64)
-    private String storedName;   // 디스크에 저장된 이름 (UUID, 확장자 없음)
+    private String storedName;   // file_blobs 의 키 (UUID, 확장자 없음)
 
     @Column(length = 100)
     private String contentType;

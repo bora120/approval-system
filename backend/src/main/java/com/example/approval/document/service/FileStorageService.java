@@ -2,9 +2,11 @@ package com.example.approval.document.service;
 
 import com.example.approval.document.config.DocumentUploadConfig;
 import com.example.approval.exception.ApiException;
+import com.example.approval.storage.FileBlobStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
@@ -12,11 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
@@ -25,11 +24,13 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * 첨부파일을 디스크에 저장/조회/삭제한다.
+ * 결재 첨부파일을 저장/조회/삭제한다.
+ * 파일 내용은 DB(file_blobs 테이블, Supabase)에 저장한다. 배포 서버 디스크는 재배포 때 지워지기 때문.
+ * (예전에 디스크(app.upload.dir)에 저장된 파일은 그대로 읽을 수 있게 남겨 둠)
  *
  * 보안 처리
  *  - 허용된 확장자만 업로드 가능 (실행 파일, 스크립트 등 차단)
- *  - 디스크에는 UUID 이름으로 저장 → 원래 파일명으로 경로 조작(../) 불가
+ *  - UUID 이름으로 저장 → 원래 파일명으로 경로 조작(../) 불가
  *  - 저장하면서 SHA-256 해시 계산 → 나중에 위변조 여부 확인 가능
  *  - 다운로드는 항상 application/octet-stream 으로 내려보냄 (브라우저에서 HTML/스크립트 실행 방지)
  */
@@ -42,15 +43,12 @@ public class FileStorageService {
             "pdf", "hwp", "hwpx", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
             "txt", "csv", "jpg", "jpeg", "png", "gif", "zip");
 
-    private final Path root;
+    private final Path root; // 예전 디스크 저장 위치 (읽기 전용 호환)
+    private final FileBlobStore blobStore;
 
-    public FileStorageService(@Value("${app.upload.dir:./uploads}") String uploadDir) {
+    public FileStorageService(@Value("${app.upload.dir:./uploads}") String uploadDir, FileBlobStore blobStore) {
         this.root = Path.of(uploadDir).toAbsolutePath().normalize();
-        try {
-            Files.createDirectories(root);
-        } catch (IOException e) {
-            throw new UncheckedIOException("업로드 폴더를 만들 수 없습니다: " + root, e);
-        }
+        this.blobStore = blobStore;
     }
 
     public record StoredFile(String originalName, String storedName, String contentType, long size, String sha256) {}
@@ -71,15 +69,12 @@ public class FileStorageService {
         }
 
         String storedName = UUID.randomUUID().toString().replace("-", "");
-        Path target = resolve(storedName);
-
-        try (InputStream in = file.getInputStream();
-             DigestInputStream digestIn = new DigestInputStream(in, MessageDigest.getInstance("SHA-256"))) {
-            long size = Files.copy(digestIn, target);
-            String sha256 = HexFormat.of().formatHex(digestIn.getMessageDigest().digest());
-            return new StoredFile(originalName, storedName, file.getContentType(), size, sha256);
+        try {
+            byte[] data = file.getBytes();
+            String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data));
+            blobStore.save(storedName, FileBlobStore.KIND_ATTACHMENT, data, sha256); // 문서 저장과 같은 트랜잭션
+            return new StoredFile(originalName, storedName, file.getContentType(), data.length, sha256);
         } catch (IOException e) {
-            delete(storedName);
             throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "파일 저장에 실패했습니다.");
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
@@ -87,17 +82,18 @@ public class FileStorageService {
     }
 
     public Resource load(String storedName) {
-        Path path = resolve(storedName);
-        if (!Files.isRegularFile(path)) {
-            throw new ApiException(HttpStatus.NOT_FOUND, "파일이 존재하지 않습니다.");
-        }
-        return new FileSystemResource(path);
+        var data = blobStore.load(storedName);
+        if (data.isPresent()) return new ByteArrayResource(data.get());
+        Path legacy = resolve(storedName); // 예전 버전이 디스크에 저장한 파일
+        if (Files.isRegularFile(legacy)) return new FileSystemResource(legacy);
+        throw new ApiException(HttpStatus.NOT_FOUND, "파일이 존재하지 않습니다.");
     }
 
     public void delete(String storedName) {
         try {
+            blobStore.delete(storedName);
             Files.deleteIfExists(resolve(storedName));
-        } catch (IOException | ApiException e) {
+        } catch (IOException | RuntimeException e) {
             log.warn("첨부파일 삭제 실패: {}", storedName, e);
         }
     }

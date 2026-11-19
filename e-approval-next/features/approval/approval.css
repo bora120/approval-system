@@ -1,9 +1,9 @@
 /* ===== 전자결재 (apv-) — 흑백 미니멀. 토큰은 app/globals.css 의 :root ===== */
 .apv-page {
   width: 100%;
-  max-width: 1000px;
+  max-width: var(--page-max);
   margin: 0 auto;
-  padding: 32px 32px 96px;
+  padding: 32px var(--page-pad) 96px;
   color: var(--c-ink);
   font-size: var(--fs-base);
 }
@@ -15,8 +15,8 @@
 .apv-breadcrumb { font-size: var(--fs-xs); color: var(--c-faint); margin-bottom: 10px; }
 .apv-breadcrumb a { color: var(--c-faint); text-decoration: none; }
 .apv-breadcrumb a:hover { color: var(--c-black); }
-.apv-title { font-size: var(--fs-xl); font-weight: 600; margin: 0 0 20px; display: flex; align-items: baseline; gap: 10px; }
-.apv-title-sub { font-size: var(--fs-sm); color: var(--c-faint); font-weight: 400; }
+.apv-title { font-size: 26px; font-weight: 400; margin: 0 0 20px; display: flex; align-items: baseline; gap: 10px; }
+.apv-title-sub { font-family: var(--font); letter-spacing: 0; font-size: var(--fs-sm); color: var(--c-faint); font-weight: 400; }
 
 /* ----- 알림 ----- */
 .apv-alert {
@@ -213,7 +213,7 @@ a.apv-file-name:hover { text-decoration: underline; }
 .apv-detail-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
 .apv-paper { background: var(--c-white); border: 1px solid var(--c-line); padding: 40px; }
 .apv-paper-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 28px; flex-wrap: wrap; }
-.apv-paper-title { font-size: 22px; font-weight: 600; letter-spacing: 8px; margin: 12px 0 0; }
+.apv-paper-title { font-size: 28px; font-weight: 400; letter-spacing: 8px; margin: 12px 0 0; }
 
 .apv-stamp-table { border-collapse: collapse; font-size: var(--fs-xs); text-align: center; }
 .apv-stamp-table td, .apv-stamp-table th { border: 1px solid var(--c-ink); }
@@ -270,6 +270,53 @@ a.apv-file-name:hover { text-decoration: underline; }
 .apv-stamp-signed--fail { font-weight: 700; text-decoration: underline; }
 .apv-print-footer { display: none; }
 
+/* ----- 문서 보기: 왼쪽 결재·문서 / 오른쪽 첨부파일 미리보기 ----- */
+.apv-review { display: block; }
+.apv-review:not(.has-preview) .apv-review-main { max-width: 1040px; margin: 0 auto; }
+.apv-review.has-preview {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(420px, 46%); gap: 24px; align-items: start;
+}
+.apv-review-main { min-width: 0; }
+.apv-preview {
+  position: sticky; top: 68px; height: calc(100vh - 92px); min-height: 480px;
+  display: flex; flex-direction: column; border: 1px solid var(--c-line); background: var(--c-white);
+}
+.apv-preview-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  padding: 12px 14px; border-bottom: 1px solid var(--c-line-strong);
+}
+.apv-preview-head h3 { font-size: var(--fs-md); }
+.apv-preview-tabs { display: flex; gap: 0; overflow-x: auto; border-bottom: 1px solid var(--c-line); }
+.apv-preview-tabs button {
+  display: flex; align-items: center; gap: 6px; max-width: 240px; flex: none;
+  padding: 9px 12px; border: 0; border-right: 1px solid var(--c-line); background: var(--c-white);
+  font-size: var(--fs-sm); color: var(--c-sub); cursor: pointer; white-space: nowrap;
+}
+.apv-preview-tabs button:hover { color: var(--c-black); }
+.apv-preview-tabs button.is-active { background: var(--c-black); color: var(--c-white); }
+.apv-preview-ext { font-size: 10px; font-weight: 700; letter-spacing: .04em; border: 1px solid currentColor; padding: 0 4px; border-radius: var(--radius); }
+.apv-preview-name { overflow: hidden; text-overflow: ellipsis; }
+.apv-preview-meta {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 8px 14px; border-bottom: 1px solid var(--c-line); font-size: var(--fs-xs); color: var(--c-sub);
+}
+.apv-preview-meta .apv-btn { margin-left: auto; }
+.apv-preview-hash { color: var(--c-black); font-weight: 600; }
+.apv-preview-hash.is-fail { text-decoration: underline; }
+.apv-preview-body { flex: 1; min-height: 0; background: var(--c-soft); display: flex; overflow: auto; }
+.apv-preview-body iframe { width: 100%; height: 100%; border: 0; background: var(--c-white); }
+.apv-preview-body--image { padding: 16px; }
+.apv-preview-body img { max-width: 100%; max-height: 100%; margin: auto; object-fit: contain; display: block; box-shadow: 0 0 0 1px var(--c-line); }
+.apv-preview-body pre {
+  margin: 0; padding: 16px; width: 100%; white-space: pre-wrap; word-break: break-word;
+  font-family: var(--mono); font-size: var(--fs-sm); background: var(--c-white);
+}
+.apv-preview-empty { margin: auto; padding: 32px; text-align: center; color: var(--c-sub); font-size: var(--fs-sm); line-height: 1.7; }
+@media (max-width: 1100px) {
+  .apv-review.has-preview { display: block; }
+  .apv-preview { position: static; height: 70vh; margin-top: 24px; }
+}
+
 /* ----- 인쇄 · PDF 저장 (A4 한 장 기준) ----- */
 @page { size: A4; margin: 14mm 12mm 16mm; }
 @media print {
@@ -277,6 +324,8 @@ a.apv-file-name:hover { text-decoration: underline; }
   html, body { background: #fff !important; }
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .apv-page { padding: 0; max-width: none; }
+  .apv-review, .apv-review.has-preview { display: block; }
+  .apv-review-main { max-width: none !important; }
   .apv-paper { border: none; padding: 0; }
   .apv-paper-header, .apv-stamp-table, .apv-info-table tr, .apv-avoid-break, .pki-sig-table tr { break-inside: avoid; }
   .apv-paper-body { min-height: 0; font-size: 11pt; }

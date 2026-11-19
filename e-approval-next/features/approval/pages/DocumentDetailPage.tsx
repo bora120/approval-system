@@ -6,6 +6,7 @@ import { signDocumentAction } from '@/features/pki/certificate'
 import { useCertificateSigner } from '@/features/pki/useCertificateSigner'
 import { documentApi } from '../api'
 import ApprovalStampTable from '../components/ApprovalStampTable'
+import AttachmentPreview from '../components/AttachmentPreview'
 import IntegrityBadge from '../components/IntegrityBadge'
 import SignaturePanel from '../components/SignaturePanel'
 import StatusBadge from '../components/StatusBadge'
@@ -285,6 +286,9 @@ export default function DocumentDetailPage() {
         </div>
       </div>
 
+      {/* 첨부파일이 있으면 왼쪽: 결재 처리 + 문서 / 오른쪽: 첨부파일 미리보기 (결재하면서 파일을 바로 확인) */}
+      <div className={doc.attachments.length > 0 ? 'apv-review has-preview' : 'apv-review'}>
+      <div className="apv-review-main">
       {doc.permissions.canDecide && (
         <section className="apv-decision apv-no-print" aria-label="결재 처리">
           <label htmlFor="apv-decision-comment">결재 의견</label>
@@ -431,11 +435,14 @@ export default function DocumentDetailPage() {
           </div>
           {documentHash && <div className="pki-mono pki-break">문서 SHA-256 {documentHash}</div>}
           <div>
-            출력 {formatDateTime(new Date().toISOString())} · {user?.name ?? ''} — 본 문서는 전자결재 시스템에서 작성되고
+            출력 {formatDateTime(new Date().toISOString())} · {user?.name ?? ''} — 본 문서는 nano system에서 작성되고
             인증서로 전자서명된 문서의 사본입니다. 원본 확인은 시스템의 문서 보기 또는 서명 원본(.json)으로 합니다.
           </div>
         </footer>
       </article>
+      </div>
+      <AttachmentPreview docId={doc.id} attachments={doc.attachments} />
+      </div>
     </div>
   )
 }

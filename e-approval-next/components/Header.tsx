@@ -6,6 +6,7 @@ import { canManageUsers, logout, useAuthState } from "@/lib/auth";
 import { useUnreadCount } from "@/features/messenger/useUnreadCount";
 import { usePendingApprovalNotifications } from "@/features/approval/usePendingApprovalNotifications";
 import { useSigningSession } from "@/features/pki/useSigningSession";
+import Brand from "@/components/Brand";
 
 type Props = { variant?: "home" | "auth" | "default" };
 
@@ -26,7 +27,7 @@ export default function Header({ variant = "default" }: Props) {
   if (variant === "auth") {
     return (
       <header className="header">
-        <Link href="/" className="logo">전자결재 시스템</Link>
+        <Link href="/" className="logo"><Brand /></Link>
         <nav>
           <Link href="/auth">로그인</Link>
           <Link href="/signup">회원가입</Link>
@@ -37,7 +38,7 @@ export default function Header({ variant = "default" }: Props) {
 
   return (
     <header className="header">
-      <Link href="/" className="logo">전자결재 시스템</Link>
+      <Link href="/" className="logo"><Brand /></Link>
       <nav>
         {!loading && !isLoggedIn && <Link href="/auth">로그인</Link>}
         {isLoggedIn && user && (

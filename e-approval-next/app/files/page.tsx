@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import RequireAuth from "@/components/RequireAuth";
 import FileBoxPage from "@/features/messenger/pages/FileBoxPage";
 
-export const metadata: Metadata = { title: "파일함 - 전자결재 시스템" };
+export const metadata: Metadata = { title: "파일함 - nano system" };
 
 export default function FilesRoute() {
   return (
