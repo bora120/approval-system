@@ -96,16 +96,9 @@ html.theme-night .header nav button.header-event.is-on {
   z-index: 2;
 }
 
-/* 첫 화면: 인사말 · 트리 · 제목 · 설명이 창 높이에 딱 맞게 한 화면에 보이고, 메뉴는 스크롤하면 아래에 나온다.
-   (창 높이 - 헤더 56px. 트리 크기는 남는 공간에 맞춰 자동으로 정해짐) */
-.event-stage.is-on .main {
-  padding-top: 0;
-}
-
+/* 제목 영역을 넓혀서 가운데에 큰 트리가 들어갈 자리를 만들고, 제목·설명은 트리 아래 가운데로 (크리스마스 카드처럼) */
 .event-stage.is-on .home-hero {
-  height: calc(100vh - 56px);
-  height: calc(100svh - 56px); /* 폰 주소창 높이까지 고려 */
-  min-height: 420px;
+  min-height: 760px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -116,7 +109,6 @@ html.theme-night .header nav button.header-event.is-on {
 
 .event-stage.is-on .home-hero .description {
   max-width: 640px;
-  margin-bottom: 0;
 }
 
 /* 뒤로 눈이 지나가도 글씨가 또렷하게 */
@@ -159,7 +151,7 @@ html.theme-night .header nav button.header-event.is-on {
   }
 
   .event-stage.is-on .home-hero {
-    min-height: 400px;
+    min-height: 540px;
     padding-bottom: 24px;
   }
 
