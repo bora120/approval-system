@@ -24,6 +24,7 @@
   --c-line-strong: #111;  /* 강조 선 */
   --c-soft: #f6f6f6;      /* 옅은 면 */
   --c-white: #fff;
+  --c-on-black-sub: #bbb; /* 검은 칸(선택·강조) 위의 흐린 글자 */
 
   --fs-xs: 11px;
   --fs-sm: 12px;
@@ -117,7 +118,7 @@ h1.brand-title { font-size: inherit; margin-bottom: 16px; }
 /* MAIN */
 .main { width: 100%; max-width: var(--page-max); margin: 0 auto; padding: 48px var(--page-pad) 72px; }
 
-.main > h1 { margin-bottom: 6px; }
+.main > h1, .home-hero > h1 { margin-bottom: 6px; } /* 홈 제목은 이벤트 배경용 .home-hero 안에 있음 */
 .description { color: var(--c-sub); margin-bottom: 32px; }
 
 /* 메인 메뉴: 선으로만 구분하는 격자 */
@@ -135,7 +136,7 @@ h1.brand-title { font-size: inherit; margin-bottom: 16px; }
 .menu-box h2 { font-size: var(--fs-md); }
 .menu-box p { color: var(--c-sub); font-size: var(--fs-sm); line-height: 1.5; }
 .menu-box:hover { background: var(--c-black); color: var(--c-white); }
-.menu-box:hover p { color: #bbb; }
+.menu-box:hover p { color: var(--c-on-black-sub); }
 
 /* 로그인 / 회원가입 */
 .auth-section { width: 100%; }

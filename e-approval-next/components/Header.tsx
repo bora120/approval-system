@@ -7,6 +7,7 @@ import { useUnreadCount } from "@/features/messenger/useUnreadCount";
 import { usePendingApprovalNotifications } from "@/features/approval/usePendingApprovalNotifications";
 import { useSigningSession } from "@/features/pki/useSigningSession";
 import Brand from "@/components/Brand";
+import { useSiteEvent } from "@/features/events/useSiteEvent";
 
 type Props = { variant?: "home" | "auth" | "default" };
 
@@ -17,6 +18,20 @@ export default function Header({ variant = "default" }: Props) {
   const unread = useUnreadCount(enabled);
   const approval = usePendingApprovalNotifications(enabled); // 결재 대기 건수 + 새 결재 브라우저 알림
   const signing = useSigningSession(enabled ? user?.loginId : undefined); // 인증서 인증 상태
+  const siteEvent = useSiteEvent(); // 기념일 테마 (크리스마스 등)
+
+  // 이벤트 기간에만 보이는 테마 켜기/끄기 버튼
+  const eventToggle = siteEvent.event && (
+    <button
+      type="button"
+      className={siteEvent.on ? "header-event is-on" : "header-event"}
+      onClick={siteEvent.toggle}
+      aria-pressed={siteEvent.on}
+      title={siteEvent.on ? `${siteEvent.event.name} 테마 끄기` : `${siteEvent.event.name} 테마 켜기 (밤하늘 · 눈 · 트리)`}
+    >
+      {siteEvent.on ? "효과 끄기" : "효과 켜기"}
+    </button>
+  );
 
   async function handleLogout() {
     await logout();
@@ -29,6 +44,7 @@ export default function Header({ variant = "default" }: Props) {
       <header className="header">
         <Link href="/" className="logo"><Brand /></Link>
         <nav>
+          {eventToggle}
           <Link href="/auth">로그인</Link>
           <Link href="/signup">회원가입</Link>
         </nav>
@@ -40,6 +56,7 @@ export default function Header({ variant = "default" }: Props) {
     <header className="header">
       <Link href="/" className="logo"><Brand /></Link>
       <nav>
+        {eventToggle}
         {!loading && !isLoggedIn && <Link href="/auth">로그인</Link>}
         {isLoggedIn && user && (
           <>

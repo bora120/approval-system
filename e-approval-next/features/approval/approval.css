@@ -66,7 +66,7 @@
 .apv-type-card small { color: var(--c-faint); font-size: var(--fs-xs); font-weight: 400; }
 .apv-type-card:hover { background: var(--c-soft); }
 .apv-type-card.is-selected { background: var(--c-black); color: var(--c-white); }
-.apv-type-card.is-selected small { color: #bbb; }
+.apv-type-card.is-selected small { color: var(--c-on-black-sub); }
 
 /* ----- 입력 폼 ----- */
 .apv-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 24px; }
@@ -125,14 +125,14 @@
   color: var(--c-ink); font-size: var(--fs-sm);
 }
 .apv-search-results button:hover { background: var(--c-black); color: var(--c-white); }
-.apv-search-results button:hover span { color: #bbb; }
+.apv-search-results button:hover span { color: var(--c-on-black-sub); }
 .apv-search-results span { color: var(--c-faint); font-size: var(--fs-xs); }
 .apv-search-empty { padding: 8px 12px; color: var(--c-faint); font-size: var(--fs-sm); }
 
 /* ----- 첨부파일 ----- */
 .apv-dropzone {
   display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 24px;
-  border: 1px dashed #bbb; border-radius: var(--radius); cursor: pointer; text-align: center;
+  border: 1px dashed var(--c-dash, #bbb); border-radius: var(--radius); cursor: pointer; text-align: center;
   font-size: var(--fs-sm); color: var(--c-ink); background: var(--c-white);
 }
 .apv-dropzone small { color: var(--c-faint); font-size: var(--fs-xs); }
