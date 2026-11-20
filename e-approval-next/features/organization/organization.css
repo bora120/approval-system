@@ -150,7 +150,7 @@
 
 .org-stat.is-active {
   background: var(--c-black);
-  color: var(--c-on-black-sub);
+  color: var(--c-on-black-sub, #bbb);
 }
 
 .org-stat.is-active strong {
@@ -421,176 +421,183 @@
 }
 
 .organization-tree-message.is-error {
-  color: var(--c-black);
-  font-weight: 600;
+  color: var(--c-error, #b42318);
 }
 
-/* ===== 트리 조직도 (전체: 대표 → 부대표 → 부서 / 부서: 부서 → 구성원) =====
-   ul > li 를 위에서 아래로 그리고, 각 칸의 ::before/::after 로 연결선을 칸 너비에 딱 맞게 잇는다.
-   칸이 많아 화면보다 넓어지면 줄을 넘기지 않고 옆으로 스크롤 (트리 모양이 깨지지 않게). */
-.otree-scroll {
-  overflow-x: auto;
-  padding: 26px 0 6px;
+/* 기존 부서별 조직도 */
+.organization-tree-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 18px;
+  padding-top: 22px;
 }
 
-.otree {
-  --otree-gap: 22px; /* 세로 연결선 길이 */
-  --otree-line: var(--c-tree-line, #cfcfcf);
-  display: flex;
-  justify-content: center;
-  min-width: max-content;
-  margin: 0 auto;
-}
-
-.otree ul {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  margin: 0;
-  padding: var(--otree-gap) 0 0;
-  list-style: none;
-}
-
-.otree > ul {
-  padding-top: 0;
-}
-
-.otree li {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: var(--otree-gap) 6px 0;
-}
-
-/* 형제 칸을 잇는 가로선 (왼쪽 절반 / 오른쪽 절반) + 칸으로 내려가는 세로선 */
-.otree li::before,
-.otree li::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  width: 50%;
-  height: var(--otree-gap);
-  border-top: 1px solid var(--otree-line);
-}
-
-.otree li::before {
-  right: 50%;
-}
-
-.otree li::after {
-  left: 50%;
-  border-left: 1px solid var(--otree-line);
-}
-
-.otree li:first-child::before,
-.otree li:last-child::after {
-  border-top: 0;
-}
-
-.otree li:last-child::before {
-  border-right: 1px solid var(--otree-line);
-}
-
-.otree li:last-child::after {
-  border-left: 0;
-}
-
-.otree li:only-child::before {
-  display: none;
-}
-
-.otree li:only-child::after {
-  border-top: 0;
-  border-left: 1px solid var(--otree-line); /* 하나뿐인 칸은 세로선만 */
-}
-
-/* 맨 위 칸은 위쪽 선 없음 */
-.otree > ul > li {
-  padding-top: 0;
-}
-
-.otree > ul > li::before,
-.otree > ul > li::after {
-  display: none;
-}
-
-/* 부모 칸에서 아래로 내려오는 세로선 */
-.otree ul ul::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  height: var(--otree-gap);
-  border-left: 1px solid var(--otree-line);
-}
-
-/* 칸 */
-.otree-node {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  min-width: 132px;
-  padding: 10px 16px;
+.organization-department {
+  min-width: 0;
+  padding: 18px;
   border: 1px solid var(--c-line);
-  border-radius: var(--radius);
-  background: var(--c-node-bg, #fafafa);
-  color: var(--c-ink);
-  font: inherit;
-  text-align: center;
-  white-space: nowrap;
+  background: var(--c-white, #fff);
 }
 
-.otree-node strong {
-  font-size: 13px;
-  font-weight: 700;
+.organization-department-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--c-line);
 }
 
-.otree-rank {
+.organization-department-title h3 {
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.organization-department-title > span:last-child {
+  margin-left: auto;
   color: var(--c-faint);
   font-size: 11px;
 }
 
-.otree-sub {
+.organization-department-mark {
+  width: 7px;
+  height: 7px;
+  background: var(--c-ink);
+}
+
+.organization-member-tree {
+  margin: 14px 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.organization-member-node {
+  position: relative;
+  min-height: 54px;
+  padding: 0 0 10px 22px;
+  border-left: 1px solid var(--c-tree-line, #d8d8d8);
+}
+
+.organization-member-node:last-child {
+  min-height: 42px;
+  padding-bottom: 0;
+  border-left-color: transparent;
+}
+
+.organization-member-connector {
+  position: absolute;
+  top: 18px;
+  left: 0;
+  width: 15px;
+  border-top: 1px solid var(--c-tree-line, #d8d8d8);
+}
+
+.organization-member-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 11px;
+  border: 1px solid var(--c-line);
+  background: var(--c-node-bg, #fafafa);
+}
+
+.organization-member-rank {
+  min-width: 38px;
   color: var(--c-sub);
   font-size: 11px;
 }
 
-/* 대표(맨 위) */
-.otree-node--root {
+.organization-member-card strong {
+  color: var(--c-ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* ===== 전체 조직도: 대표 → 부대표 → 부서 ===== */
+
+.organization-overview-tree {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 0 8px;
+}
+
+.organization-overview-level {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.organization-overview-node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 10px 20px;
+  border: 1px solid var(--c-line);
+  background: var(--c-node-bg, #fafafa);
+  text-align: center;
+}
+
+.organization-overview-executive {
+  flex-direction: column;
+  gap: 4px;
   min-width: 180px;
-  border-color: var(--c-ink);
-  background: var(--c-ink);
-  color: var(--c-white);
 }
 
-.otree-node--root .otree-rank,
-.otree-node--root .otree-sub {
-  color: var(--c-on-black-sub2, #bdbdbd);
+.organization-overview-executive span {
+  color: var(--c-sub);
+  font-size: 11px;
 }
 
-.otree-node--exec {
-  min-width: 170px;
-  border-color: var(--c-ink);
-  background: var(--c-white);
+.organization-overview-executive strong {
+  color: var(--c-ink);
+  font-size: 14px;
+  font-weight: 700;
 }
 
-/* 부서 칸: 누르면 그 부서 탭으로 */
-.otree-node--dept {
+/* 대표와 부대표 사이의 세로 연결선 */
+.organization-overview-connector {
+  width: 1px;
+  height: 28px;
+  background: var(--c-tree-line, #d8d8d8);
+}
+
+/* 부서 노드 */
+.organization-overview-departments {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  position: relative;
+  padding-top: 18px;
+}
+
+.organization-overview-departments::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  border-top: 1px solid var(--c-tree-line, #d8d8d8);
+}
+
+.organization-overview-department {
+  position: relative;
   min-width: 150px;
-  background: var(--c-white);
-  cursor: pointer;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
+  font-size: 13px;
+  font-weight: 700;
 }
 
-.otree-node--dept:hover,
-.otree-node--dept:focus-visible {
-  outline: none;
-  border-color: var(--c-ink);
-  background: var(--c-soft);
+/* 부서로 내려가는 연결선 */
+.organization-overview-department::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  height: 18px;
+  border-left: 1px solid var(--c-tree-line, #d8d8d8);
 }
 
 /* ===== 부서 선택 탭 ===== */
@@ -609,7 +616,7 @@
   min-height: 38px;
   padding: 0 13px;
   border: 1px solid var(--c-line);
-  background: var(--c-white);
+  background: var(--c-white, #fff);
   color: var(--c-sub);
   font-size: 12px;
   cursor: pointer;
@@ -625,7 +632,7 @@
   height: 20px;
   place-items: center;
   padding: 0 5px;
-  border-radius: var(--radius);
+  border-radius: 10px;
   background: var(--c-badge-bg, #f1f1f1);
   color: var(--c-badge-fg, #666);
   font-size: 10px;
@@ -635,11 +642,11 @@
 .organization-department-tab.is-active {
   border-color: var(--c-ink);
   background: var(--c-ink);
-  color: var(--c-white);
+  color: var(--c-white, #fff);
 }
 
 .organization-department-tab.is-active span {
-  background: var(--c-white);
+  background: var(--c-white, #fff);
   color: var(--c-ink);
 }
 
@@ -664,23 +671,25 @@
     font-size: 11px;
   }
 
-  .otree {
-    --otree-gap: 18px;
-    margin: 0; /* 넓으면 왼쪽부터 보여주고 옆으로 스크롤 */
+  .organization-tree-grid {
+    grid-template-columns: 1fr;
   }
 
-  .otree li {
-    padding-left: 4px;
-    padding-right: 4px;
+  .organization-overview-tree {
+    padding-top: 22px;
   }
 
-  .otree-node {
-    min-width: 104px;
-    padding: 8px 10px;
+  .organization-overview-departments {
+    gap: 8px;
   }
 
-  .otree-node--root,
-  .otree-node--exec {
-    min-width: 140px;
+  .organization-overview-departments::before {
+    left: 5%;
+    right: 5%;
+  }
+
+  .organization-overview-department {
+    min-width: min(130px, 42%);
+    padding: 9px 10px;
   }
 }

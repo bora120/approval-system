@@ -12,32 +12,34 @@
 html.theme-night {
   color-scheme: dark; /* 입력칸·스크롤바 같은 브라우저 기본 부품도 어둡게 */
 
-  /* 깊고 진한 미드나잇 블루 */
-  --c-black: #f3efe4;       /* 가장 진한 색 → 따뜻한 눈빛 흰색 (선택·강조 칸, 로고) */
-  --c-ink: #e7ebf7;         /* 본문 글자 */
-  --c-sub: #a6b1d3;         /* 보조 글자 */
-  --c-faint: #7480a8;       /* 흐린 글자 */
-  --c-line: #1c2858;        /* 기본 선 */
-  --c-line-strong: #e7ebf7; /* 강조 선 */
-  --c-soft: #0d1745;        /* 옅은 면 (표 머리·칸) */
-  --c-white: #070f36;       /* 바탕 = 상자 (하나로 통일) */
-  --c-on-black-sub: #5d6893;
-  --c-tree-line: #2e3b72;   /* 조직도 연결선 */
-  --c-node-bg: #0d1745;     /* 조직도 칸 */
-  --c-on-black-sub2: #5d6893;
-  --c-badge-bg: #16215a;    /* 숫자 배지 */
-  --c-badge-fg: #a6b1d3;
-  --c-preview-bg: #0d1745;  /* 메신저 파일 미리보기 바탕 */
-  --c-dash: #2e3b72;        /* 점선 (파일 올리기 칸) */
-  --c-accent: #f2c14e;      /* 금색 포인트 (별·인사말·켜기 버튼) */
+  /* 원래 흑백 디자인을 그대로 뒤집은 것: 흰 바탕 → 차분한 밤색 남색, 검은 글자·칸 → 부드러운 흰색.
+     채도를 낮추고(눈부심 X) 글자와 바탕의 대비도 순백·순흑보다 한 단계 낮췄다. */
+  --c-white: #121a2b;       /* 바탕 = 상자 (하나로 통일) */
+  --c-soft: #182237;        /* 옅은 면 (표 머리·칸) */
+  --c-line: #26314a;        /* 기본 선 */
+  --c-line-strong: #c3ccdc; /* 강조 선 */
+  --c-black: #c3ccdc;       /* 원래 검은 칸(선택·버튼·로고) → 부드러운 회청색 흰빛 */
+  --c-ink: #dce2ec;         /* 본문 글자 */
+  --c-sub: #98a3b7;         /* 보조 글자 */
+  --c-faint: #6d788e;       /* 흐린 글자 */
+  --c-on-black-sub: #4f5b72; /* 밝은 칸 위의 흐린 글자 */
+  --c-on-black-sub2: #4f5b72;
+  --c-tree-line: #34405a;   /* 조직도 연결선 */
+  --c-node-bg: #182237;     /* 조직도 칸 */
+  --c-badge-bg: #232e45;    /* 숫자 배지 */
+  --c-badge-fg: #98a3b7;
+  --c-preview-bg: #182237;  /* 메신저 파일 미리보기 바탕 */
+  --c-dash: #34405a;        /* 점선 (파일 올리기 칸) */
+  --c-error: #eda39a;       /* 오류 글자 */
+  --c-accent: #dcc28a;      /* 은은한 금색 포인트 (인사말·켜기 버튼) */
 }
 
-/* 오류 안내 칸: 밝은 화면에서는 검은 칸이지만, 밤에는 크림색 덩어리가 눈부시므로 차분한 면 + 금색 줄로 */
+/* 오류 안내 칸: 밝은 화면에서는 검은 칸이지만, 밤에는 밝은 덩어리가 눈부시므로 옅은 면 + 금색 줄로 */
 html.theme-night .apv-alert--error,
 html.theme-night .sm-banner--error,
 html.theme-night .org-alert--error,
 html.theme-night .pki-error {
-  background: #131e55;
+  background: var(--c-soft);
   color: var(--c-ink);
   border-left: 2px solid var(--c-accent);
 }
@@ -77,18 +79,25 @@ html.theme-night .header nav button.header-event.is-on {
   z-index: 0;
   /* 제목 영역에만 은은한 빛 + 배경 이미지, 아래로 갈수록 바탕색(--c-white)에 녹아들어 경계가 안 보임 */
   background:
-    linear-gradient(180deg, rgba(7, 15, 54, 0.2) 0%, rgba(7, 15, 54, 0.55) 420px, var(--c-white) 760px),
+    linear-gradient(180deg, rgba(18, 26, 43, 0.15) 0%, rgba(18, 26, 43, 0.5) 50vh, var(--c-white) 100vh),
     var(--event-bg, none) center top / 100% auto no-repeat,
-    radial-gradient(60% 640px at 50% 0%, rgba(52, 86, 196, 0.5) 0%, rgba(7, 15, 54, 0) 100%);
+    radial-gradient(55% 70vh at 50% 0%, rgba(120, 140, 190, 0.16) 0%, rgba(18, 26, 43, 0) 100%);
 }
 
 .event-canvas {
+  /* 첫 화면(제목 영역)만 그린다 → 페이지 전체를 다시 그리지 않아 가볍다 */
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
   z-index: 1;
   width: 100%;
-  height: 100%;
+  height: calc(100vh - 56px);
+  height: calc(100svh - 56px);
+  min-height: 420px;
   pointer-events: none; /* 클릭은 아래 내용으로 */
+  /* 아래 끝에서 눈이 뚝 끊기지 않게 서서히 사라짐 */
+  -webkit-mask-image: linear-gradient(180deg, #000 80%, transparent);
+  mask-image: linear-gradient(180deg, #000 80%, transparent);
 }
 
 .event-content {
@@ -96,9 +105,16 @@ html.theme-night .header nav button.header-event.is-on {
   z-index: 2;
 }
 
-/* 제목 영역을 넓혀서 가운데에 큰 트리가 들어갈 자리를 만들고, 제목·설명은 트리 아래 가운데로 (크리스마스 카드처럼) */
+/* 첫 화면: 인사말 · 트리 · 제목 · 설명이 창 높이에 딱 맞게 한 화면에 보이고, 메뉴는 스크롤하면 아래에 나온다.
+   (창 높이 - 헤더 56px. 트리 크기는 남는 공간에 맞춰 자동으로 정해짐) */
+.event-stage.is-on .main {
+  padding-top: 0;
+}
+
 .event-stage.is-on .home-hero {
-  min-height: 760px;
+  height: calc(100vh - 56px);
+  height: calc(100svh - 56px); /* 폰 주소창 높이까지 고려 */
+  min-height: 420px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -109,14 +125,15 @@ html.theme-night .header nav button.header-event.is-on {
 
 .event-stage.is-on .home-hero .description {
   max-width: 640px;
+  margin-bottom: 0;
 }
 
 /* 뒤로 눈이 지나가도 글씨가 또렷하게 */
 .event-stage.is-on .home-hero .brand,
 .event-stage.is-on .home-hero .description {
   text-shadow:
-    0 1px 3px rgba(6, 10, 22, 0.9),
-    0 0 12px rgba(6, 10, 22, 0.8);
+    0 1px 3px rgba(18, 26, 43, 0.9),
+    0 0 12px rgba(18, 26, 43, 0.8);
 }
 
 .event-greeting {
@@ -126,12 +143,12 @@ html.theme-night .header nav button.header-event.is-on {
   z-index: 3;
   transform: translateX(-50%);
   margin: 0;
-  color: var(--c-accent, #f2c14e);
+  color: var(--c-accent, #dcc28a);
   font-family: var(--font-display);
   font-size: 18px;
   letter-spacing: 0.06em;
   white-space: nowrap;
-  text-shadow: 0 0 12px rgba(242, 193, 78, 0.45);
+  text-shadow: 0 0 10px rgba(220, 194, 138, 0.25);
   pointer-events: none;
 }
 
@@ -150,8 +167,12 @@ html.theme-night .header nav button.header-event.is-on {
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
   }
 
+  .event-canvas {
+    min-height: 400px;
+  }
+
   .event-stage.is-on .home-hero {
-    min-height: 540px;
+    min-height: 400px;
     padding-bottom: 24px;
   }
 
